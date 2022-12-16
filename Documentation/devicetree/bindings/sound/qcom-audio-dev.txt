@@ -312,17 +312,10 @@ Required properties:
 
  - compatible : "qcom,msm-pcm-hostless"
 
-* msm-audio-apr
+Optional properties
 
-Required properties:
-
- - compatible : "qcom,msm-audio-apr"
-		This device is added to represent APR module.
-
-Optional properties:
-
- - compatible : "qcom,msm-audio-apr-dummy"
-		Add this compatible as child device to msm-audio-apr device.
+ - compatible : "qcom,audio-test-mod"
+		Add this compatible as child device to hostless device.
 		This child device is added after lpass is up to invoke
 		deferred probe devices.
 
@@ -668,6 +661,9 @@ Example:
 
         qcom,msm-pcm-hostless {
                 compatible = "qcom,msm-pcm-hostless";
+		audio-test-mod {
+			compatible = "qcom,audio-test-mod";
+		};
         };
 
 	qcom,msm-ocmem-audio {

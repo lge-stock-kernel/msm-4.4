@@ -787,8 +787,8 @@ static inline qdf_dma_addr_t qdf_nbuf_get_frag_paddr(qdf_nbuf_t buf,
  * @buf: Network buffer
  *
  * Return: Fragment physical address
- * Usage guideline: Use ‚Äúqdf_nbuf_frag_map()‚Äù to dma map the specific
- *                  skb fragment , followed by ‚Äúqdf_nbuf_get_tx_frag_paddr‚Äù
+ * Usage guideline: Use °∞qdf_nbuf_frag_map()°± to dma map the specific
+ *                  skb fragment , followed by °∞qdf_nbuf_get_tx_frag_paddr°±
  */
 static inline qdf_dma_addr_t qdf_nbuf_get_tx_frag_paddr(qdf_nbuf_t buf)
 {

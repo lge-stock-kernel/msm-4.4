@@ -50,6 +50,10 @@
 #include <linux/compat.h>
 #endif
 
+#ifdef CONFIG_LGE_DIAG_BYPASS
+#include "lg_diag_bypass.h"
+#endif
+
 MODULE_DESCRIPTION("Diag Char Driver");
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("1.0");
@@ -1161,7 +1165,7 @@ static void diag_remote_exit(void)
 	return;
 }
 
-int diagfwd_bridge_init(int xprt)
+int diagfwd_bridge_init(bool use_mhi)
 {
 	return 0;
 }
@@ -3436,7 +3440,12 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 		return -EIO;
 	}
 
+
+#ifdef CONFIG_LGE_DIAG_BYPASS
+	if (driver->logging_mode == DIAG_USB_MODE && !driver->usb_connected && !lge_bypass_status()) {
+#else
 	if (driver->logging_mode == DIAG_USB_MODE && !driver->usb_connected) {
+#endif
 		if (!((pkt_type == DCI_DATA_TYPE) ||
 		    (pkt_type == DCI_PKT_TYPE) ||
 		    (pkt_type & DATA_TYPE_DCI_LOG) ||
@@ -3788,7 +3797,7 @@ static int diag_mhi_probe(struct platform_device *pdev)
 		diag_remote_exit();
 		return ret;
 	}
-	ret = diagfwd_bridge_init(1);
+	ret = diagfwd_bridge_init(true);
 	if (ret) {
 		diagfwd_bridge_exit();
 		return ret;
@@ -3821,7 +3830,7 @@ static int diagfwd_usb_probe(struct platform_device *pdev)
 		diag_remote_exit();
 		return ret;
 	}
-	ret = diagfwd_bridge_init(0);
+	ret = diagfwd_bridge_init(false);
 	if (ret) {
 		diagfwd_bridge_exit();
 		return ret;
@@ -3841,39 +3850,6 @@ static struct platform_driver diagfwd_usb_driver = {
 		.name = "DIAGFWD USB Platform",
 		.owner = THIS_MODULE,
 		.of_match_table = diagfwd_usb_table,
-	},
-};
-
-static int diagfwd_sdio_probe(struct platform_device *pdev)
-{
-	int ret;
-
-	driver->pdev = pdev;
-	ret = diag_remote_init();
-	if (ret) {
-		diag_remote_exit();
-		return ret;
-	}
-	ret = diagfwd_bridge_init(2);
-	if (ret) {
-		diagfwd_bridge_exit();
-		return ret;
-	}
-	pr_debug("diag: usb device is ready\n");
-	return 0;
-}
-
-static const struct of_device_id diagfwd_sdio_table[] = {
-	{.compatible = "qcom,diagfwd-sdio"},
-	{},
-};
-
-static struct platform_driver diagfwd_sdio_driver = {
-	.probe = diagfwd_sdio_probe,
-	.driver = {
-		.name = "DIAGFWD SDIO Platform",
-		.owner = THIS_MODULE,
-		.of_match_table = diagfwd_sdio_table,
 	},
 };
 
@@ -4004,7 +3980,6 @@ static int __init diagchar_init(void)
 	pr_debug("diagchar initialized now");
 	platform_driver_register(&diag_mhi_driver);
 	platform_driver_register(&diagfwd_usb_driver);
-	platform_driver_register(&diagfwd_sdio_driver);
 	return 0;
 
 fail:

@@ -25,9 +25,27 @@ endmenu
 menu "HSIC/SMUX support for DIAG"
 
 config DIAGFWD_BRIDGE_CODE
-	depends on USB_QCOM_DIAG_BRIDGE || MSM_MHI || QCOM_SDIO_CLIENT
+	depends on USB_QCOM_DIAG_BRIDGE || MSM_MHI
 	default y
 	bool "Enable QSC/9K DIAG traffic over SMUX/HSIC"
 	help
 	 SMUX/HSIC Transport Layer for DIAG Router
+endmenu
+
+menu "LGE DM APP Support"
+
+config LGE_DM_APP
+	bool "LGE DM APP Support"
+	default y
+	depends on MACH_LGE
+	help
+	 LGE DM APP Support
+endmenu
+menu "LGE DIAG BYPASS Support"
+config LGE_DIAG_BYPASS
+    tristate "Support LGE diag bypass for factory"
+    default n
+    depends on MACH_LGE
+    help
+      LGE diag bypass
 endmenu

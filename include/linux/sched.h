@@ -879,6 +879,13 @@ struct signal_struct {
 	short oom_score_adj;		/* OOM kill score adjustment */
 	short oom_score_adj_min;	/* OOM kill score adjustment min value.
 					 * Only settable by CAP_SYS_RESOURCE. */
+#ifdef CONFIG_HSWAP
+	short reclaimed;
+	int reclaim_efficiency;
+	short top_count;
+	long top_time;
+	unsigned long before_time;
+#endif
 
 	struct mutex cred_guard_mutex;	/* guard against foreign influences on
 					 * credential calculations
@@ -2149,7 +2156,7 @@ extern int arch_task_struct_size __read_mostly;
 extern void task_numa_fault(int last_node, int node, int pages, int flags);
 extern pid_t task_numa_group_id(struct task_struct *p);
 extern void set_numabalancing_state(bool enabled);
-extern void task_numa_free(struct task_struct *p, bool final);
+extern void task_numa_free(struct task_struct *p);
 extern bool should_numa_migrate_memory(struct task_struct *p, struct page *page,
 					int src_nid, int dst_cpu);
 #else
@@ -2164,7 +2171,7 @@ static inline pid_t task_numa_group_id(struct task_struct *p)
 static inline void set_numabalancing_state(bool enabled)
 {
 }
-static inline void task_numa_free(struct task_struct *p, bool final)
+static inline void task_numa_free(struct task_struct *p)
 {
 }
 static inline bool should_numa_migrate_memory(struct task_struct *p,
