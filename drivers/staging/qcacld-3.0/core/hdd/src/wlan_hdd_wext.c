@@ -8472,6 +8472,14 @@ static int __iw_setint_getnone(struct net_device *dev,
 		ret = wma_cli_set_command(pAdapter->sessionId,
 					  WMA_VDEV_TXRX_FWSTATS_ENABLE_CMDID,
 					  set_value, VDEV_CMD);
+#ifdef FEATURE_SUPPORT_LGE
+// [LGE_CHANGE_S] 2017.04.26, neo-wifi@lge.com, Add Reset Command for KPI log
+        hdd_debug("WE_TXRX_FWSTATS_RESET val %d", set_value);
+        ret = wma_cli_set_command(pAdapter->sessionId,
+                      WMA_VDEV_TXRX_FWSTATS_RESET_CMDID,
+                      set_value, VDEV_CMD);
+// [LGE_CHANGE_E] 2017.04.26, neo-wifi@lge.com, Add Reset Command for KPI log
+#endif
 		break;
 	}
 
@@ -9161,10 +9169,22 @@ static int __iw_setnone_getint(struct net_device *dev,
 	case WE_GET_NSS:
 	{
 		sme_get_config_param(hHal, sme_config);
+#if 0
 		*value = (sme_config->csrConfig.enable2x2 == 0) ? 1 : 2;
 		 if (wma_is_current_hwmode_dbs())
 			 *value = *value-1;
 		hdd_debug("GET_NSS: Current NSS:%d", *value);
+#endif
+		//LGE_CHANGE_S, 18.04.18, protocol-wifi@lge.com, Change DBS mode check in WCN399X
+		if (wma_is_current_hwmode_dbs()) {
+			hdd_debug("GET_NSS: Current mode is DBS.");
+			*value = 1;
+		}
+		else {
+			hdd_debug("GET_NSS: Current mode isn't DBS.");
+			*value = 0;
+		}
+		//LGE_CHANGE_E, 18.04.18, protocol-wifi@lge.com, Change DBS mode check in WCN399X
 		break;
 	}
 
@@ -12319,8 +12339,8 @@ int hdd_set_band(struct net_device *dev, u8 ui_band)
 	}
 
 	if ((band == eCSR_BAND_24 && pHddCtx->config->nBandCapability == 2) ||
-	    (band == eCSR_BAND_5G && pHddCtx->config->nBandCapability == 1) ||
-	    (band == eCSR_BAND_ALL && pHddCtx->config->nBandCapability != 0)) {
+	    (band == eCSR_BAND_5G && pHddCtx->config->nBandCapability == 1)/* ||
+	    (band == eCSR_BAND_ALL && pHddCtx->config->nBandCapability != 0)*/) {       // LGE_PATCH
 		hdd_err("band value %u violate INI settings %u",
 			  band, pHddCtx->config->nBandCapability);
 		return -EIO;

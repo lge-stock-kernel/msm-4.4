@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/irqreturn.h>
+#include <linux/delay.h>
 #include "msm_csid.h"
 #include "msm_sd.h"
 #include "msm_camera_io_util.h"
@@ -48,7 +49,13 @@
 #define CSID_VERSION_V50                      0x50000000
 #define MSM_CSID_DRV_NAME                    "msm_csid"
 
+#ifndef CONFIG_MACH_LGE
 #define DBG_CSID                             0
+#else
+/* LGE_CHANGE, CST, enabled csid sof debug feature */
+#define DBG_CSID                             1
+#endif
+
 #define SHORT_PKT_CAPTURE                    0
 #define SHORT_PKT_OFFSET                     0x200
 #define ENABLE_3P_BIT                        1
@@ -491,8 +498,20 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 
 	irq = msm_camera_io_r(csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr);
+
+#ifndef CONFIG_MACH_LGE
 	pr_err_ratelimited("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
 		 __func__, csid_dev->pdev->id, irq);
+#else
+	/* LGE_CHANGE, CST, enabled csid sof debug feature */
+	if (csid_dev->csid_sof_debug == SOF_DEBUG_ENABLE)
+		pr_err("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
+		 __func__, csid_dev->pdev->id, irq);
+	else
+	    pr_err_ratelimited("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
+		 __func__, csid_dev->pdev->id, irq);
+#endif
+
 	if (irq & (0x1 <<
 		csid_dev->ctrl_reg->csid_reg.csid_rst_done_irq_bitshift))
 		complete(&csid_dev->reset_complete);
@@ -516,6 +535,7 @@ static int msm_csid_irq_routine(struct v4l2_subdev *sd, u32 status,
 static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 {
 	int rc = 0;
+	//int retry = 0;
 
 	if (!csid_version) {
 		pr_err("%s:%d csid_version NULL\n", __func__, __LINE__);
@@ -526,12 +546,19 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 	csid_dev->csid_sof_debug_count = 0;
 	csid_dev->reg_ptr = NULL;
 
+#if 0 // LGE_CHANGE , retry csid state check after 100ms for 5 times, dongjin.ha 2018-06-22
+	while(csid_dev->csid_state == CSID_POWER_UP && retry != 5){
+		retry++;
+		msleep(100);
+		pr_err("%s: csid invalid state %d retry = %d\n", __func__,
+			csid_dev->csid_state,retry);
+	}
+#endif
 	if (csid_dev->csid_state == CSID_POWER_UP) {
 		pr_err("%s: csid invalid state %d\n", __func__,
 			csid_dev->csid_state);
 		return -EINVAL;
 	}
-
 	rc = cam_config_ahb_clk(NULL, 0, CAM_AHB_CLIENT_CSID,
 			CAM_AHB_SVS_VOTE);
 	if (rc < 0) {
