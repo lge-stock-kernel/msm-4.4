@@ -235,7 +235,9 @@ static int mmc_read_ssr(struct mmc_card *card)
 	unsigned int au, es, et, eo;
 	int err, i;
 	u32 *ssr;
-
+#ifdef CONFIG_MACH_LGE
+	unsigned int speed_class_ssr = 0;
+#endif
 	if (!(card->csd.cmdclass & CCC_APP_SPEC)) {
 		pr_warn("%s: card lacks mandatory SD Status function\n",
 			mmc_hostname(card->host));
@@ -272,6 +274,24 @@ static int mmc_read_ssr(struct mmc_card *card)
 				card->ssr.erase_timeout = (et * 1000) / es;
 				card->ssr.erase_offset = eo * 1000;
 			}
+#ifdef CONFIG_MACH_LGE
+			/* LGE_CHANGE
+			 * Get SPEED_CLASS of SD-card.
+			 * 0:Class0, 1:Class2, 2:Class4, 3:Class6, 4:Class10
+			 */
+			speed_class_ssr = UNSTUFF_BITS(ssr, 440 - 384, 8);
+			if (speed_class_ssr < 5) {
+				printk(KERN_INFO "[LGE][MMC][%-18s( )] mmc_hostname:%s, %u ==> SPEED_CLASS %s%s%s%s%s\n", __func__,
+						mmc_hostname(card->host), speed_class_ssr,
+						((speed_class_ssr == 4) ? "10" : ""),
+						((speed_class_ssr == 3) ? "6" : ""),
+						((speed_class_ssr == 2) ? "4" : ""),
+						((speed_class_ssr == 1) ? "2" : ""),
+						((speed_class_ssr == 0) ? "0" : ""));
+			} else {
+				printk(KERN_INFO "[LGE][MMC][%-18s( )] mmc_hostname:%s, Unknown SPEED_CLASS\n", __func__, mmc_hostname(card->host));
+			}
+#endif
 		} else {
 			pr_warn("%s: SD Status: Invalid Allocation Unit size\n",
 				mmc_hostname(card->host));

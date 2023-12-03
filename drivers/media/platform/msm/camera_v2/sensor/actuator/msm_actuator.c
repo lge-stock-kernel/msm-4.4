@@ -34,11 +34,14 @@ DEFINE_MSM_MUTEX(msm_actuator_mutex);
 static struct v4l2_file_operations msm_actuator_v4l2_subdev_fops;
 static int32_t msm_actuator_power_up(struct msm_actuator_ctrl_t *a_ctrl);
 static int32_t msm_actuator_power_down(struct msm_actuator_ctrl_t *a_ctrl);
-
+#ifdef CONFIG_MACH_LGE
+extern void lgit_imx351_rohm_write_vcm(int16_t nDAC);
+#endif
 static struct msm_actuator msm_vcm_actuator_table;
 static struct msm_actuator msm_piezo_actuator_table;
 static struct msm_actuator msm_hvcm_actuator_table;
 static struct msm_actuator msm_bivcm_actuator_table;
+static struct msm_actuator msm_close_loop_actuator_table;
 
 static struct i2c_driver msm_actuator_i2c_driver;
 static struct msm_actuator *actuators[] = {
@@ -46,6 +49,7 @@ static struct msm_actuator *actuators[] = {
 	&msm_piezo_actuator_table,
 	&msm_hvcm_actuator_table,
 	&msm_bivcm_actuator_table,
+	&msm_close_loop_actuator_table,
 };
 
 static int32_t msm_actuator_piezo_set_default_focus(
@@ -700,6 +704,106 @@ static int32_t msm_actuator_move_focus(
 	return rc;
 }
 
+static int32_t msm_actuator_claf_move_focus(
+	struct msm_actuator_ctrl_t *a_ctrl,
+	struct msm_actuator_move_params_t *move_params)
+{
+	int32_t rc = 0;
+	int8_t sign_dir = 0;
+	uint16_t step_boundary = 0;
+	uint16_t target_step_pos = 0;
+	uint16_t target_lens_pos = 0;
+	int16_t dest_step_pos = 0;
+	uint16_t curr_lens_pos = 0;
+	int dir = 0;
+	int32_t num_steps = 0;
+	int16_t tar_pos = 0;
+
+	CDBG("called, dir %d, num_steps %d\n", dir, num_steps);
+
+	if (move_params == NULL) {
+		pr_err("move_params is NULL");
+		return 0;
+	}
+	sign_dir = move_params->sign_dir;
+	dest_step_pos = move_params->dest_step_pos;
+	dir = move_params->dir;
+	num_steps = move_params->num_steps;
+
+	if (a_ctrl == NULL) {
+		pr_err("a_ctrl is NULL");
+		return 0;
+	}
+
+	if (a_ctrl->step_position_table == NULL) {
+		//pr_err("Step Position Table is NULL");
+		return -EFAULT;
+	}
+
+	if (dest_step_pos == a_ctrl->curr_step_pos)
+		return rc;
+
+	if ((sign_dir > MSM_ACTUATOR_MOVE_SIGNED_NEAR) ||
+		(sign_dir < MSM_ACTUATOR_MOVE_SIGNED_FAR)) {
+		pr_err("Invalid sign_dir = %d\n", sign_dir);
+		return -EFAULT;
+	}
+	if ((dir > MOVE_FAR) || (dir < MOVE_NEAR)) {
+		pr_err("Invalid direction = %d\n", dir);
+		return -EFAULT;
+	}
+	if (dest_step_pos > a_ctrl->total_steps) {
+		pr_err("Step pos greater than total steps = %d\n",
+		dest_step_pos);
+		return -EFAULT;
+	}
+	curr_lens_pos = a_ctrl->step_position_table[a_ctrl->curr_step_pos];
+	CDBG("curr_step_pos =%d dest_step_pos =%d curr_lens_pos=%d\n",
+		a_ctrl->curr_step_pos, dest_step_pos, curr_lens_pos);
+
+	while (a_ctrl->curr_step_pos != dest_step_pos) {
+		step_boundary =
+			a_ctrl->region_params[a_ctrl->curr_region_index].step_bound[dir];
+		if ((dest_step_pos * sign_dir) <=
+			(step_boundary * sign_dir)) {
+
+			target_step_pos = dest_step_pos;
+			target_lens_pos =
+				a_ctrl->step_position_table[target_step_pos];
+			curr_lens_pos = target_lens_pos;
+
+		} else {
+			target_step_pos = step_boundary;
+			target_lens_pos =
+				a_ctrl->step_position_table[target_step_pos];
+			curr_lens_pos = target_lens_pos;
+
+			a_ctrl->curr_region_index += sign_dir;
+		}
+		a_ctrl->curr_step_pos = target_step_pos;
+	}
+
+
+	move_params->curr_lens_pos = curr_lens_pos;
+	/*if(a_ctrl->region_params[0].macro_dac < 0) {
+		a_ctrl->region_params[0].macro_dac = 8000;
+		a_ctrl->region_params[0].infinity_dac = -8000;
+	}*/
+
+	tar_pos = curr_lens_pos;// - 300;// - 512; [Offset]
+
+#ifdef CONFIG_MACH_LGE
+	    lgit_imx351_rohm_write_vcm(tar_pos);
+#endif
+	if (rc < 0) {
+		pr_err("i2c write error:%d\n", rc);
+		return rc;
+	}
+	CDBG("Exit\n");
+
+	return rc;
+}
+
 static int32_t msm_actuator_bivcm_move_focus(
 	struct msm_actuator_ctrl_t *a_ctrl,
 	struct msm_actuator_move_params_t *move_params)
@@ -1273,13 +1377,59 @@ static int32_t msm_actuator_bivcm_set_position(
 	return rc;
 }
 
+#ifdef CONFIG_MACH_LGE
+static int32_t msm_actuator_claf_set_position(
+	struct msm_actuator_ctrl_t *a_ctrl,
+	struct msm_actuator_set_position_t *set_pos)
+{
+	int32_t rc = 0;
+	int32_t index;
+	uint16_t next_lens_position;
+	uint16_t delay;
+	int16_t tar_pos = 0;
+
+	CDBG("%s Enter %d\n", __func__, __LINE__);
+	if (set_pos->number_of_steps <= 0 ||
+		set_pos->number_of_steps > MAX_NUMBER_OF_STEPS) {
+		pr_err("num_steps out of range = %d\n",
+			set_pos->number_of_steps);
+		return -EFAULT;
+	}
+
+	if(a_ctrl->region_params[0].macro_dac < 0) {
+		a_ctrl->region_params[0].macro_dac = 8000;
+		a_ctrl->region_params[0].infinity_dac = -8000;
+	}
+
+	for (index = 0; index < set_pos->number_of_steps; index++) {
+		next_lens_position = set_pos->pos[index];
+		delay = set_pos->delay[index];
+
+		if(a_ctrl->total_steps != 0) {
+			if(next_lens_position <= 300)
+				tar_pos = ((a_ctrl->region_params[0].macro_dac - a_ctrl->region_params[0].infinity_dac)*next_lens_position)/(a_ctrl->total_steps-50)
+					+ a_ctrl->region_params[0].infinity_dac;
+			else if(next_lens_position > 300)
+				tar_pos = ((21000 - a_ctrl->region_params[0].macro_dac)*(next_lens_position-300))/50
+					+ a_ctrl->region_params[0].macro_dac;
+		}
+
+		//pr_err("macro_dac: %d, infinity: %d, tar_pos: %d, a_ctrl->total_steps = %d\n", a_ctrl->region_params[0].macro_dac,
+		//	a_ctrl->region_params[0].infinity_dac, tar_pos, a_ctrl->total_steps);
+	    lgit_imx351_rohm_write_vcm(tar_pos);
+	}
+	CDBG("%s exit %d\n", __func__, __LINE__);
+	return rc;
+}
+#endif
+
 static int32_t msm_actuator_set_param(struct msm_actuator_ctrl_t *a_ctrl,
 	struct msm_actuator_set_info_t *set_info) {
 	struct reg_settings_t *init_settings = NULL;
 	int32_t rc = -EFAULT;
 	uint16_t i = 0;
 	struct msm_camera_cci_client *cci_client = NULL;
-	CDBG("Enter\n");
+	CDBG("Enter type %d, i2c addr %x \n", set_info->actuator_params.act_type,  set_info->actuator_params.i2c_addr);
 
 	for (i = 0; i < ARRAY_SIZE(actuators); i++) {
 		if (set_info->actuator_params.act_type ==
@@ -1983,8 +2133,13 @@ static int32_t msm_actuator_platform_probe(struct platform_device *pdev)
 	}
 	rc = msm_sensor_driver_get_gpio_data(&(msm_actuator_t->gconf),
 		(&pdev->dev)->of_node);
+#ifndef CONFIG_MACH_LGE
 	if (rc <= 0) {
 		pr_err("%s: No/Error Actuator GPIOs\n", __func__);
+#else
+	if (rc < 0) {
+		pr_err("%s: No/Error Actuator GPIOs\n", __func__);
+#endif
 	} else {
 		msm_actuator_t->cam_pinctrl_status = 1;
 		rc = msm_camera_pinctrl_init(
@@ -2143,6 +2298,23 @@ static struct msm_actuator msm_bivcm_actuator_table = {
 		.actuator_park_lens = NULL,
 	},
 };
+
+
+static struct msm_actuator msm_close_loop_actuator_table = {
+	.act_type = ACTUATOR_CLOSE_LOOP_HVCM,
+	.func_tbl = {
+		.actuator_init_step_table = msm_actuator_init_step_table,  //
+		.actuator_move_focus = msm_actuator_claf_move_focus,   //
+		.actuator_write_focus = msm_actuator_write_focus,
+		.actuator_set_default_focus = msm_actuator_set_default_focus,
+		.actuator_init_focus = msm_actuator_init_focus,
+		.actuator_parse_i2c_params = NULL,
+		.actuator_set_position = msm_actuator_claf_set_position,  //
+		.actuator_park_lens = NULL,
+
+	},
+};
+
 
 module_init(msm_actuator_init_module);
 MODULE_DESCRIPTION("MSM ACTUATOR");

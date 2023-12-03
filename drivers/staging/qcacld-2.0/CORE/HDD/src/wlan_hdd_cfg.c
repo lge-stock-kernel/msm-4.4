@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -3505,6 +3505,13 @@ REG_TABLE_ENTRY g_registry_table[] =
                  CFG_ENABLE_DEBUG_CONNECT_ISSUE_MIN ,
                  CFG_ENABLE_DEBUG_CONNECT_ISSUE_MAX),
 
+   REG_VARIABLE( CFG_ENABLE_SAP_EAPOL_CHECKING, WLAN_PARAM_Integer,
+                 hdd_config_t, gEnableSapEapolChecking,
+                 VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
+                 CFG_ENABLE_SAP_EAPOL_CHECKING_DEFAULT,
+                 CFG_ENABLE_SAP_EAPOL_CHECKING_MIN ,
+                 CFG_ENABLE_SAP_EAPOL_CHECKING_MAX),
+
    REG_VARIABLE( CFG_RX_HANDLE, WLAN_PARAM_Integer,
                  hdd_config_t, rxhandle,
                  VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
@@ -5485,6 +5492,13 @@ REG_TABLE_ENTRY g_registry_table[] =
 		CFG_IS_SAE_ENABLED_DEFAULT,
 		CFG_IS_SAE_ENABLED_MIN,
 		CFG_IS_SAE_ENABLED_MAX),
+
+    REG_VARIABLE(CFG_ENABLE_SAP_BEACON_FILTER_NAME, WLAN_PARAM_Integer,
+              hdd_config_t, enable_sap_beacon_filter,
+              VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
+              CFG_ENABLE_SAP_BEACON_FILTER_DEFAULT,
+              CFG_ENABLE_SAP_BEACON_FILTER_MIN,
+              CFG_ENABLE_SAP_BEACON_FILTER_MAX)
 };
 
 
@@ -8158,6 +8172,13 @@ v_BOOL_t hdd_update_config_dat( hdd_context_t *pHddCtx )
                     eANI_BOOLEAN_FALSE) == eHAL_STATUS_FAILURE) {
        fStatus = FALSE;
        hddLog(LOGE, "Could not pass on WNI_CFG_SKIP_CRASH_INJECT to CCM");
+   }
+
+   if (ccmCfgSetInt(pHddCtx->hHal, WNI_CFG_SAP_ENABLE_BEACON_FILTER,
+           pConfig->enable_sap_beacon_filter, NULL,
+           eANI_BOOLEAN_FALSE) == eHAL_STATUS_FAILURE) {
+        fStatus = FALSE;
+       hddLog(LOGE, "Could not pass on WNI_CFG_SAP_ENABLE_BEACON_FILTER to CCM");
    }
 
    return fStatus;

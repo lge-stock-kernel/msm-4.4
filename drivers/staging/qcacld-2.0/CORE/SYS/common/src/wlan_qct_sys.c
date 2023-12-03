@@ -570,6 +570,8 @@ SysProcessMmhMsg
   {
     //Caller doesn't allocate memory for the pMsg. It allocate memory for bodyptr
     /* free the mem and return */
+    VOS_TRACE(VOS_MODULE_ID_SYS, VOS_TRACE_LEVEL_ERROR, "Failed to post message: msg type=%d\n", pMsg->type);
+
     if(pMsg->bodyptr)
     {
       vos_mem_free( pMsg->bodyptr);

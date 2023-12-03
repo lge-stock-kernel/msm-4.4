@@ -6159,7 +6159,8 @@ static int __iw_setint_getnone(struct net_device *dev,
         }
         case WE_SET_MAX_TX_POWER:
         {
-           tSirMacAddr bssid;
+#ifdef MAX_TX_POWER_ORIGIN
+	   tSirMacAddr bssid;
            tSirMacAddr selfMac;
 
            if (NULL == hHal)
@@ -6178,7 +6179,27 @@ static int __iw_setint_getnone(struct net_device *dev,
               __func__);
               return -EIO;
            }
+#else
+	   tSirTxPowerLimit *hddtxlimit_SAR;
 
+	  /* SAR power limit */
+	   hddtxlimit_SAR = vos_mem_malloc(sizeof(tSirTxPowerLimit));
+	   if (!hddtxlimit_SAR)
+	   {
+		VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
+			 "%s: Memory allocation for TxPowerLimit "
+			 "failed!", __func__);
+		return -EIO;
+	   }
+	   hddtxlimit_SAR->txPower2g = set_value;
+	   hddtxlimit_SAR->txPower5g = set_value;
+
+	   if (eHAL_STATUS_SUCCESS != sme_TxpowerLimit(pHddCtx->hHal,hddtxlimit_SAR))
+	   {
+		hddLog(VOS_TRACE_LEVEL_ERROR,
+		   "%s: Error setting txlimit in sme", __func__);
+	   }
+#endif
            break;
         }
         case WE_SET_MAX_TX_POWER_2_4:

@@ -1130,10 +1130,13 @@ static int wlan_hdd_execute_remain_on_channel(hdd_adapter_t *pAdapter,
 
     //Extending duration for proactive extension logic for RoC
     duration = pRemainChanCtx->duration;
-    if (isGoPresent == VOS_TRUE)
-         duration = P2P_ROC_DURATION_MULTIPLIER_GO_PRESENT * duration;
-    else
-         duration = P2P_ROC_DURATION_MULTIPLIER_GO_ABSENT * duration;
+    if (duration < HDD_P2P_MAX_ROC_DURATION) { /* LGE WIFI-3182, 20180720 */
+        if (isGoPresent == VOS_TRUE) {
+            duration *= P2P_ROC_DURATION_MULTIPLIER_GO_PRESENT;
+        } else {
+            duration *= P2P_ROC_DURATION_MULTIPLIER_GO_ABSENT;
+        }
+    }
 
     hdd_prevent_suspend(WIFI_POWER_EVENT_WAKELOCK_ROC);
     vos_runtime_pm_prevent_suspend(pHddCtx->runtime_context.roc);
@@ -2214,7 +2217,8 @@ int __wlan_hdd_mgmt_tx(struct wiphy *wiphy, struct net_device *dev,
                            actionFrmType == WLAN_HDD_PROV_DIS_RESP)
                        wait = wait + ACTION_FRAME_RSP_WAIT;
                    else if ( actionFrmType == WLAN_HDD_GO_NEG_CNF ||
-                           actionFrmType == WLAN_HDD_INVITATION_RESP )
+                           actionFrmType == WLAN_HDD_INVITATION_RESP ||
+                           actionFrmType == WLAN_HDD_PROV_DIS_RESP) /* LGE_P2P_CHANGE, WIFI-6422 */
                        wait = wait + ACTION_FRAME_ACK_WAIT;
 
                    hddLog( LOG1, "%s: Extending the wait time %d for actionFrmType=%d",

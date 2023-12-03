@@ -1,3 +1,9 @@
+ifeq ($(CONFIG_MACH_LGE), y)
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+dts-dirs += qcom
+endif
+dts-dirs += lge
+else
 dts-dirs += altera
 dts-dirs += amd
 dts-dirs += apm
@@ -13,6 +19,7 @@ dts-dirs += qcom
 dts-dirs += rockchip
 dts-dirs += sprd
 dts-dirs += xilinx
+endif
 
 subdir-y	:= $(dts-dirs)
 

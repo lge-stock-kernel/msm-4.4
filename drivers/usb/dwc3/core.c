@@ -1321,6 +1321,12 @@ static int dwc3_remove(struct platform_device *pdev)
 	struct dwc3	*dwc = platform_get_drvdata(pdev);
 	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 
+#ifdef CONFIG_LGE_USB
+	if (!res) {
+		dev_err(dwc->dev,"missing memory resource\n");
+		return -ENODEV;
+	}
+#endif
 	/*
 	 * restore res->start back to its original value so that, in case the
 	 * probe is deferred, we don't end up getting error in request the

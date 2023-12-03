@@ -118,6 +118,9 @@ enum {
 enum power_supply_property {
 	/* Properties of type `int' */
 	POWER_SUPPLY_PROP_STATUS = 0,
+#ifdef CONFIG_LGE_PM
+	POWER_SUPPLY_PROP_STATUS_RAW,
+#endif
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_PRESENT,
@@ -227,10 +230,22 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_VOLTAGE_QNOVO,
 	POWER_SUPPLY_PROP_RERUN_AICL,
 	POWER_SUPPLY_PROP_CYCLE_COUNT_ID,
+#ifdef CONFIG_LGE_PM
+	POWER_SUPPLY_PROP_BATTERY_CYCLE,
+#endif
 	POWER_SUPPLY_PROP_SAFETY_TIMER_EXPIRED,
 	POWER_SUPPLY_PROP_RESTRICTED_CHARGING,
+#ifdef CONFIG_LGE_USB_TYPE_C
+	POWER_SUPPLY_PROP_DP_ALT_MODE,
+#endif
 	POWER_SUPPLY_PROP_CURRENT_CAPABILITY,
 	POWER_SUPPLY_PROP_TYPEC_MODE,
+#if defined(CONFIG_LGE_USB_FLOATED_CHARGER_DETECT) && defined(CONFIG_LGE_USB_TYPE_C)
+	POWER_SUPPLY_PROP_CTYPE_CHARGER,
+#endif
+#if defined(CONFIG_LGE_USB_ANX7688_OVP) || defined(CONFIG_LGE_USB_TUSB422)
+	POWER_SUPPLY_PROP_CTYPE_RP,
+#endif
 	POWER_SUPPLY_PROP_TYPEC_CC_ORIENTATION, /* 0: N/C, 1: CC1, 2: CC2 */
 	POWER_SUPPLY_PROP_TYPEC_POWER_ROLE,
 	POWER_SUPPLY_PROP_PD_ALLOWED,
@@ -297,6 +312,11 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_TYPEC,	/* Type-C */
 	POWER_SUPPLY_TYPE_UFP,		/* Type-C UFP */
 	POWER_SUPPLY_TYPE_DFP,		/* TYpe-C DFP */
+#ifdef CONFIG_LGE_USB_TYPE_C
+	POWER_SUPPLY_TYPE_CTYPE,	/* 18  USB Type-C Charger based on CC controller */
+	POWER_SUPPLY_TYPE_CTYPE_PD,	/* 19  USB Type-C Charger based on PD Message */
+	POWER_SUPPLY_TYPE_CTYPE_DEBUG_ACCESSORY, /* Type-C DebugAccessoryMode */
+#endif
 };
 
 /* Indicates USB Type-C CC connection status */
@@ -314,6 +334,11 @@ enum power_supply_typec_mode {
 	POWER_SUPPLY_TYPEC_SOURCE_DEFAULT,		/* Rp default */
 	POWER_SUPPLY_TYPEC_SOURCE_MEDIUM,		/* Rp 1.5A */
 	POWER_SUPPLY_TYPEC_SOURCE_HIGH,			/* Rp 3A */
+
+	/* Rp/Rp LG factory cable */
+#ifdef CONFIG_LGE_USB_TYPE_C
+	POWER_SUPPLY_TYPEC_SOURCE_DEBUG_ACCESSORY, /* Rp default Rp default */
+#endif
 	POWER_SUPPLY_TYPEC_NON_COMPLIANT,
 };
 
@@ -428,6 +453,9 @@ struct power_supply {
 	char *online_trig_name;
 	struct led_trigger *charging_blink_full_solid_trig;
 	char *charging_blink_full_solid_trig_name;
+#endif
+#ifdef CONFIG_LGE_USB_FLOATED_CHARGER_DETECT
+	int is_floated_charger;
 #endif
 };
 

@@ -66,6 +66,11 @@
 #include <asm/xen/hypervisor.h>
 #include <asm/mmu_context.h>
 
+#ifdef CONFIG_MACH_LGE
+unsigned int system_rev;
+EXPORT_SYMBOL(system_rev);
+#endif
+
 unsigned int boot_reason;
 EXPORT_SYMBOL(boot_reason);
 

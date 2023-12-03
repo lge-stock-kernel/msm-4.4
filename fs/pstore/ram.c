@@ -37,6 +37,10 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 
+#ifdef CONFIG_LGE_HANDLE_PANIC
+#include <soc/qcom/lge/lge_handle_panic.h>
+#endif
+
 #define RAMOOPS_KERNMSG_HDR "===="
 #define MIN_MEM_SIZE 4096UL
 
@@ -494,78 +498,56 @@ void notrace ramoops_console_write_buf(const char *buf, size_t size)
 	persistent_ram_write(cxt->cprz, buf, size);
 }
 
-static int ramoops_parse_dt_size(struct platform_device *pdev,
-		const char *propname, unsigned long *val)
-{
-	u64 val64;
-	int ret;
-
-	ret = of_property_read_u64(pdev->dev.of_node, propname, &val64);
-	if (ret == -EINVAL) {
-		*val = 0;
-		return 0;
-	} else if (ret != 0) {
-		dev_err(&pdev->dev, "failed to parse property %s: %d\n",
-				propname, ret);
-		return ret;
-	}
-
-	if (val64 > ULONG_MAX) {
-		dev_err(&pdev->dev, "invalid %s %llu\n", propname, val64);
-		return -EOVERFLOW;
-	}
-
-	*val = val64;
-	return 0;
-}
-
 static int ramoops_parse_dt(struct platform_device *pdev,
 		struct ramoops_platform_data *pdata)
 {
 	struct device_node *of_node = pdev->dev.of_node;
-	struct device_node *mem_region;
-	struct resource res;
 	u32 ecc_size;
 	int ret;
 
 	dev_dbg(&pdev->dev, "using Device Tree\n");
 
-	mem_region = of_parse_phandle(of_node, "memory-region", 0);
-	if (!mem_region) {
-		dev_err(&pdev->dev, "no memory-region phandle\n");
-		return -ENODEV;
-	}
-
-	ret = of_address_to_resource(mem_region, 0, &res);
-	of_node_put(mem_region);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to translate memory-region to resource: %d\n",
-				ret);
+	ret = of_property_read_u32(of_node, "mem-size", (u32*)&pdata->mem_size);
+	if (ret < 0) {
+		pr_err("failed to read mem-size from ramoops DT, ret: %d\n", ret);
 		return ret;
 	}
 
-	pdata->mem_size = resource_size(&res);
-	pdata->mem_address = res.start;
+	ret = of_property_read_u32(of_node, "mem-address", (u32*)&pdata->mem_address);
+	if (ret < 0) {
+		pr_err("failed to read mem-address from ramoops DT, ret: %d\n", ret);
+		return ret;
+	}
+
+
 	pdata->mem_type = of_property_read_bool(of_node, "unbuffered");
 	pdata->dump_oops = !of_property_read_bool(of_node, "no-dump-oops");
 
-	ret = ramoops_parse_dt_size(pdev, "record-size", &pdata->record_size);
-	if (ret < 0)
+	ret = of_property_read_u32(of_node, "record-size", (u32*)&pdata->record_size);
+	if (ret < 0) {
+		pr_err("failed to read record-size from ramoops DT, ret: %d\n", ret);
 		return ret;
+	}
 
-	ret = ramoops_parse_dt_size(pdev, "console-size", &pdata->console_size);
-	if (ret < 0)
+	ret = of_property_read_u32(of_node, "console-size", (u32*)&pdata->console_size);
+	if (ret < 0) {
+		pr_err("failed to read console-size from ramoops DT, ret: %d\n", ret);
 		return ret;
+	}
 
-	ret = ramoops_parse_dt_size(pdev, "ftrace-size", &pdata->ftrace_size);
-	if (ret < 0)
+	ret = of_property_read_u32(of_node, "ftrace-size", (u32*)&pdata->ftrace_size);
+	if (ret < 0) {
+		pr_err("failed to read ftrace-size from ramoops DT, ret: %d\n", ret);
 		return ret;
+	}
 
-	ret = ramoops_parse_dt_size(pdev, "pmsg-size", &pdata->pmsg_size);
-	if (ret < 0)
+	ret = of_property_read_u32(of_node, "pmsg-size", (u32*)&pdata->pmsg_size);
+	if (ret < 0) {
+		pr_err("failed to read pmsg-size from ramoops DT, ret: %d\n", ret);
 		return ret;
+	}
 
-	ret = of_property_read_u32(of_node, "ecc-size", &ecc_size);
+	ret = of_property_read_u32(of_node, "ecc-size", (u32*)&ecc_size);
 	if (ret == 0) {
 		if (ecc_size > INT_MAX) {
 			dev_err(&pdev->dev, "invalid ecc-size %u\n", ecc_size);
@@ -636,9 +618,11 @@ static int ramoops_probe(struct platform_device *pdev)
 
 	dump_mem_sz = cxt->size - cxt->console_size - cxt->ftrace_size
 			- cxt->pmsg_size;
-	err = ramoops_init_przs(dev, cxt, &paddr, dump_mem_sz);
-	if (err)
-		goto fail_out;
+	if (dump_mem_sz) {
+		err = ramoops_init_przs(dev, cxt, &paddr, dump_mem_sz);
+		if (err)
+			goto fail_out;
+	}
 
 	err = ramoops_init_prz(dev, cxt, &cxt->cprz, &paddr,
 			       cxt->console_size, 0);
@@ -693,6 +677,10 @@ static int ramoops_probe(struct platform_device *pdev)
 	pr_info("attached 0x%lx@0x%llx, ecc: %d/%d\n",
 		cxt->size, (unsigned long long)cxt->phys_addr,
 		cxt->ecc_info.ecc_size, cxt->ecc_info.block_size);
+
+#ifdef CONFIG_LGE_HANDLE_PANIC
+	lge_set_ram_console_addr(cxt->phys_addr, cxt->size);
+#endif
 
 	return 0;
 

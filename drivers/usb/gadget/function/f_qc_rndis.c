@@ -680,6 +680,45 @@ struct net_device *rndis_qc_get_net(const char *netname)
 	return net_dev;
 }
 
+#ifdef CONFIG_LGE_USB_GADGET
+static int rndis_set_mac_os(struct usb_function *f)
+{
+	struct usb_composite_dev *cdev = f->config->cdev;
+	struct usb_interface_assoc_descriptor *iad_desc;
+	struct usb_interface_descriptor *ctrl_desc;
+
+	iad_desc = (struct usb_interface_assoc_descriptor *)f->fs_descriptors[0];
+	ctrl_desc = (struct usb_interface_descriptor *)f->fs_descriptors[1];
+	iad_desc->bFunctionClass = ctrl_desc->bInterfaceClass =
+		USB_CLASS_WIRELESS_CONTROLLER;
+	iad_desc->bFunctionSubClass = ctrl_desc->bInterfaceSubClass = 0x01;
+	iad_desc->bFunctionProtocol = ctrl_desc->bInterfaceProtocol = 0x03;
+
+	if (f->hs_descriptors && gadget_is_dualspeed(cdev->gadget)) {
+		iad_desc = (struct usb_interface_assoc_descriptor *)f->hs_descriptors[0];
+		ctrl_desc = (struct usb_interface_descriptor *)f->hs_descriptors[1];
+		iad_desc->bFunctionClass = ctrl_desc->bInterfaceClass =
+			USB_CLASS_WIRELESS_CONTROLLER;
+		iad_desc->bFunctionSubClass = ctrl_desc->bInterfaceSubClass = 0x01;
+		iad_desc->bFunctionProtocol = ctrl_desc->bInterfaceProtocol = 0x03;
+	}
+
+	if (f->ss_descriptors && gadget_is_superspeed(cdev->gadget)) {
+		iad_desc = (struct usb_interface_assoc_descriptor *)f->ss_descriptors[0];
+		ctrl_desc = (struct usb_interface_descriptor *)f->ss_descriptors[1];
+		iad_desc->bFunctionClass = ctrl_desc->bInterfaceClass =
+			USB_CLASS_WIRELESS_CONTROLLER;
+		iad_desc->bFunctionSubClass = ctrl_desc->bInterfaceSubClass = 0x01;
+		iad_desc->bFunctionProtocol = ctrl_desc->bInterfaceProtocol = 0x03;
+	}
+
+	DBG(cdev, "MAC OS GSI class/subclass/proto change to %u/%u/%u\n",
+	    USB_CLASS_WIRELESS_CONTROLLER, 0x01, 0x03);
+
+	return 0;
+}
+#endif
+
 static int rndis_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct f_rndis_qc	 *rndis = func_to_rndis_qc(f);
@@ -1265,6 +1304,9 @@ usb_function *rndis_qc_bind_config_vendor(struct usb_function_instance *fi,
 	rndis->func.suspend = rndis_qc_suspend;
 	rndis->func.resume = rndis_qc_resume;
 	rndis->func.free_func = rndis_qc_free;
+#ifdef CONFIG_LGE_USB_GADGET
+	rndis->func.set_mac_os = rndis_set_mac_os;
+#endif
 
 	_rndis_qc = rndis;
 

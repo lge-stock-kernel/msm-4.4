@@ -43,12 +43,19 @@ static int zram_major;
 static const char *default_compressor = "lzo";
 
 /* Module params (documentation at end) */
+#ifndef CONFIG_HSWAP
 static unsigned int num_devices = 1;
+#else
+static unsigned int num_devices = 2;
+#endif
 /*
  * Pages that compress to sizes equals or greater than this are stored
  * uncompressed in memory.
  */
 static size_t huge_class_size;
+#ifdef CONFIG_ZRAM_NON_SWAP
+static const size_t max_zpage_size = PAGE_SIZE / 4 * 3;
+#endif
 
 static void zram_free_page(struct zram *zram, size_t index);
 
@@ -66,6 +73,28 @@ static inline bool init_done(struct zram *zram)
 {
 	return zram->disksize;
 }
+
+#ifdef CONFIG_HSWAP
+int zram0_free_size(void)
+{
+	struct zram *zram;
+	u64 val = 0;
+
+	if (idr_is_empty(&zram_index_idr))
+		return 0;
+
+	zram = idr_find_slowpath(&zram_index_idr, 0);
+
+	if (init_done(zram))
+		val += ((zram->disksize >> PAGE_SHIFT) -
+			atomic64_read(&zram->stats.pages_stored));
+
+	if (val > 0)
+		return val;
+
+	return 0;
+}
+#endif
 
 static inline bool zram_allocated(struct zram *zram, u32 index)
 {
@@ -1124,6 +1153,14 @@ compress_again:
 		return ret;
 	}
 
+#ifdef CONFIG_ZRAM_NON_SWAP
+	if (!is_partial_io(bvec) && zram->non_swap && comp_len > zram->non_swap) {
+		zcomp_stream_put(zram->comp);
+		SetPageNonSwap(page);
+		return 0;
+	}
+#endif
+
 	if (unlikely(comp_len >= huge_class_size)) {
 		comp_len = PAGE_SIZE;
 		if (zram_wb_enabled(zram) && allow_wb) {
@@ -1605,6 +1642,31 @@ static const struct block_device_operations zram_devops = {
 	.owner = THIS_MODULE
 };
 
+#ifdef CONFIG_ZRAM_NON_SWAP
+static ssize_t non_swap_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct zram *zram = dev_to_zram(dev);
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", zram->non_swap);
+}
+
+static ssize_t non_swap_store(struct device *dev,
+		struct device_attribute *attr, const char *buf,
+		size_t len)
+{
+	struct zram *zram = dev_to_zram(dev);
+
+	zram->non_swap = (unsigned int)memparse(buf, NULL);
+
+	if (zram->non_swap > max_zpage_size)
+		pr_warn("Nonswap should small than max_zpage_size %zu\n",
+				max_zpage_size);
+
+	return len;
+}
+#endif
+
 static DEVICE_ATTR_WO(compact);
 static DEVICE_ATTR_RW(disksize);
 static DEVICE_ATTR_RO(initstate);
@@ -1615,6 +1677,9 @@ static DEVICE_ATTR_RW(max_comp_streams);
 static DEVICE_ATTR_RW(comp_algorithm);
 #ifdef CONFIG_ZRAM_WRITEBACK
 static DEVICE_ATTR_RW(backing_dev);
+#endif
+#ifdef CONFIG_ZRAM_NON_SWAP
+static DEVICE_ATTR_RW(non_swap);
 #endif
 
 static struct attribute *zram_disk_attrs[] = {
@@ -1632,6 +1697,9 @@ static struct attribute *zram_disk_attrs[] = {
 	&dev_attr_io_stat.attr,
 	&dev_attr_mm_stat.attr,
 	&dev_attr_debug_stat.attr,
+#ifdef CONFIG_ZRAM_NON_SWAP
+	&dev_attr_non_swap.attr,
+#endif
 	NULL,
 };
 
@@ -1730,6 +1798,9 @@ static int zram_add(void)
 	add_disk(zram->disk);
 
 	strlcpy(zram->compressor, default_compressor, sizeof(zram->compressor));
+#ifdef CONFIG_ZRAM_NON_SWAP
+	zram->non_swap = max_zpage_size;
+#endif
 
 	zram_debugfs_register(zram);
 	pr_info("Added device: %s\n", zram->disk->disk_name);

@@ -8252,6 +8252,7 @@ typedef struct {
  */
 #define WMI_UNIFIED_VDEV_START_LDPC_RX_ENABLED  (1<<3)
 
+#define WMI_UNIFIED_VDEV_START_FILTER_BEACON (1<<31)
 /* BSS color 0-6 */
 #define WMI_HEOPS_COLOR_GET_D2(he_ops) WMI_GET_BITS(he_ops, 0, 6)
 #define WMI_HEOPS_COLOR_SET_D2(he_ops, value) WMI_SET_BITS(he_ops, 0, 6, value)

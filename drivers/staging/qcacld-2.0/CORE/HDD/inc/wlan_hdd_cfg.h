@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2021 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -3223,6 +3223,18 @@ This feature requires the dependent cfg.ini "gRoamPrefer5GHz" set to 1 */
 #define CFG_ENABLE_DEBUG_CONNECT_ISSUE_DEFAULT     (0x76)
 
 /*
+ * Eapol sanity checking Enable/Disable for SAP.
+ * 0x0 - Enable eapol sanity checking in the RX path
+ *       before deliver to the OS in the SAP mode.
+ * 0x1 - Enable eapol sanity checking in the RX path
+ *       before deliver to the OS in the SAP mode.
+ */
+#define CFG_ENABLE_SAP_EAPOL_CHECKING             "gEnableSapEapolChecking"
+#define CFG_ENABLE_SAP_EAPOL_CHECKING_MIN         (0)
+#define CFG_ENABLE_SAP_EAPOL_CHECKING_MAX         (1)
+#define CFG_ENABLE_SAP_EAPOL_CHECKING_DEFAULT     (1)
+
+/*
  * RX packet handling options
  * 0: no rx thread, no RPS, for MDM
  * 1: RX thread
@@ -3705,7 +3717,7 @@ This feature requires the dependent cfg.ini "gRoamPrefer5GHz" set to 1 */
 #define CFG_ENABLE_SELF_RECOVERY                   "gEnableSelfRecovery"
 #define CFG_ENABLE_SELF_RECOVERY_MIN               ( 0 )
 #define CFG_ENABLE_SELF_RECOVERY_MAX               ( 1 )
-#define CFG_ENABLE_SELF_RECOVERY_DEFAULT           ( 0 )
+#define CFG_ENABLE_SELF_RECOVERY_DEFAULT           ( 1 )
 
 #define CFG_ENABLE_SAP_SUSPEND                     "gEnableSapSuspend"
 #define CFG_ENABLE_SAP_SUSPEND_MIN                 ( 0 )
@@ -5673,6 +5685,25 @@ FG_BTC_BT_INTERVAL_PAGE_P2P_STA_DEFAULT
 #define CFG_IS_PER_CHAIN_STATS_ENABLED_MIN     (0)
 #define CFG_IS_PER_CHAIN_STATS_ENABLED_MAX     (1)
 
+/*
+ * <ini>
+ * gEnableSAPBeaconFilter - Enable beacon filter in sap
+ * @Min: 0
+ * @Max: 1
+ * @Default: 0
+ *
+ * This ini is used to enable/disable beacon filter in sap
+ *
+ * Related: None
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_ENABLE_SAP_BEACON_FILTER_NAME    "gEnableSAPBeaconFilter"
+#define CFG_ENABLE_SAP_BEACON_FILTER_MIN     WNI_CFG_SAP_ENABLE_BEACON_FILTER_STAMIN
+#define CFG_ENABLE_SAP_BEACON_FILTER_MAX     WNI_CFG_SAP_ENABLE_BEACON_FILTER_STAMAX
+#define CFG_ENABLE_SAP_BEACON_FILTER_DEFAULT WNI_CFG_SAP_ENABLE_BEACON_FILTER_STADEF
 /*---------------------------------------------------------------------------
   Type declarations
   -------------------------------------------------------------------------*/
@@ -6190,6 +6221,7 @@ struct hdd_config {
    v_U32_t                     TxPower2g;
    v_U32_t                     TxPower5g;
    v_U32_t                     gEnableDebugLog;
+   v_U32_t                     gEnableSapEapolChecking;
    uint8_t                     enable_ac_txq_optimize;
    v_U8_t                      rxhandle;
    uint8_t                     cpu_map_list[CFG_RPS_RX_QUEUE_CPU_MAP_LIST_LEN];
@@ -6611,6 +6643,7 @@ struct hdd_config {
    bool is_sae_enabled;
 #endif
    bool per_chain_stats_enabled;
+   uint8_t enable_sap_beacon_filter;
 };
 
 typedef struct hdd_config hdd_config_t;

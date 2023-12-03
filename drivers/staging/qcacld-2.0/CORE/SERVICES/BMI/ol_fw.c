@@ -1616,13 +1616,9 @@ void ol_target_failure(void *instance, A_STATUS status)
 	}
 
 #ifdef HIF_PCI
-	ret = hif_pci_check_fw_reg(scn->hif_sc);
-	if (0 == ret) {
-		if (scn->enable_self_recovery) {
-			ol_schedule_fw_indication_work(scn);
-			return;
-		}
-	} else if (-1 == ret) {
+    ret = hif_pci_check_fw_reg(scn->hif_sc);
+	if (scn->enable_self_recovery) {
+		ol_schedule_fw_indication_work(scn);
 		return;
 	}
 #endif

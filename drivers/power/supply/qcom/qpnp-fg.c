@@ -37,6 +37,11 @@
 #include <linux/string_helpers.h>
 #include <linux/alarmtimer.h>
 #include <linux/qpnp/qpnp-revid.h>
+#ifdef CONFIG_LGE_PM
+#include <linux/cpufreq.h>
+#include <linux/reboot.h>
+#include <soc/qcom/lge/board_lge.h>
+#endif
 
 /* Register offsets */
 
@@ -266,7 +271,12 @@ static struct fg_mem_setting settings[FG_MEM_SETTING_MAX] = {
 
 static struct fg_mem_data fg_data[FG_DATA_MAX] = {
 	/*       ID           Address, Offset, Length, Value*/
+#ifdef CONFIG_LGE_PM
+	/* Value change from -2 degree to 20 degree. */
+	DATA(BATT_TEMP,       0x550,   2,      2,     200),
+#else
 	DATA(BATT_TEMP,       0x550,   2,      2,     -EINVAL),
+#endif
 	DATA(OCV,             0x588,   3,      2,     -EINVAL),
 	DATA(VOLTAGE,         0x5CC,   1,      2,     -EINVAL),
 	DATA(CURRENT,         0x5CC,   3,      2,     -EINVAL),
@@ -312,7 +322,11 @@ static struct fg_mem_data fg_backup_regs[FG_BACKUP_MAX] = {
 	BACKUP(MAH_TO_SOC,	0x4A0,   0,      4,     -EINVAL),
 };
 
+#ifdef CONFIG_LGE_PM
+static int fg_debug_mask = FG_STATUS | FG_IRQS | FG_AGING;
+#else
 static int fg_debug_mask;
+#endif
 module_param_named(
 	debug_mask, fg_debug_mask, int, 00600
 );
@@ -337,12 +351,23 @@ module_param_named(
 	sram_update_period_ms, fg_sram_update_period_ms, int, 00600
 );
 
+#ifdef CONFIG_LGE_PM
+static int fg_lge_debug = 0;
+module_param_named(
+	lge_debug, fg_lge_debug, int, 00600
+);
+#endif
+
 static bool fg_batt_valid_ocv;
 module_param_named(batt_valid_ocv, fg_batt_valid_ocv, bool, 0600
 );
 
 static int fg_batt_range_pct;
 module_param_named(batt_range_pct, fg_batt_range_pct, int, 0600
+);
+
+static int fg_reset_do_it =false;
+module_param_named(fg_reset_do, fg_reset_do_it, int, 0600
 );
 
 struct fg_irq {
@@ -522,6 +547,10 @@ struct fg_chip {
 	bool			first_profile_loaded;
 	struct fg_wakeup_source	update_temp_wakeup_source;
 	struct fg_wakeup_source	update_sram_wakeup_source;
+#ifdef CONFIG_LGE_PM
+	struct fg_wakeup_source	lge_debug_wakeup_source;
+	int				battery_cycle;
+#endif
 	bool			fg_restarting;
 	bool			profile_loaded;
 	bool			soc_reporting_ready;
@@ -546,7 +575,9 @@ struct fg_chip {
 	bool			charging_disabled;
 	bool			use_vbat_low_empty_soc;
 	bool			fg_shutdown;
+#ifndef CONFIG_LGE_PM
 	bool			use_soft_jeita_irq;
+#endif
 	bool			allow_false_negative_isense;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
@@ -572,7 +603,9 @@ struct fg_chip {
 	int			prev_status;
 	int			health;
 	enum fg_batt_aging_mode	batt_aging_mode;
+#ifndef CONFIG_LGE_PM
 	struct alarm		hard_jeita_alarm;
+#endif
 	/* capacity learning */
 	struct fg_learning_data	learning_data;
 	struct alarm		fg_cap_learning_alarm;
@@ -593,8 +626,10 @@ struct fg_chip {
 	bool			jeita_hysteresis_support;
 	bool			batt_hot;
 	bool			batt_cold;
+#ifndef CONFIG_LGE_PM
 	bool			batt_warm;
 	bool			batt_cool;
+#endif
 	int			cold_hysteresis;
 	int			hot_hysteresis;
 	/* ESR pulse tuning */
@@ -603,6 +638,9 @@ struct fg_chip {
 	bool			esr_extract_disabled;
 	bool			imptr_pulse_slow_en;
 	bool			esr_pulse_tune_en;
+#ifdef CONFIG_MACH_MSM8996_TF10
+	bool			dummy_battery_fake_temp;
+#endif
 	/* Slope limiter */
 	struct work_struct	slope_limiter_work;
 	struct fg_wakeup_source	slope_limit_wakeup_source;
@@ -713,6 +751,35 @@ static char *fg_supplicants[] = {
 	"bcl",
 	"fg_adc"
 };
+
+#ifdef CONFIG_LGE_PM_VENEER_PSY
+static struct power_supply_desc fg_psy_desc_extension;
+enum power_supply_property* extension_bms_properties(void);
+size_t extension_bms_num_properties(void);
+int extension_bms_get_property(struct power_supply *psy, enum power_supply_property prop, union power_supply_propval *val);
+int extension_bms_set_property(struct power_supply *psy, enum power_supply_property prop, const union power_supply_propval *val);
+int extension_bms_property_is_writeable(struct power_supply *psy, enum power_supply_property prop);
+
+#ifdef CONFIG_LGE_PM_BATTID_REDETECTION
+static int battery_id_redetection(struct fg_chip *chip);
+#endif
+
+struct device_node* extension_get_batt_profile(struct device_node* container, int resistance_id);
+#ifdef CONFIG_LGE_PM
+int extension_fg_load_dt(void);
+int extension_fg_load_icoeff_dt(struct fg_chip *chip);
+int lge_get_ui_soc(struct fg_chip *chip, int msoc_raw);
+extern bool unified_bootmode_fabproc(void);
+
+void wa_check_ima_error_handling_trigger(struct fg_chip *chip);
+void wa_set_check_ima_error_handling(bool value);
+bool wa_get_check_ima_error_handling(void);
+
+bool wa_vint_error_check_trigger(struct fg_chip *chip);
+void wa_vint_error_check_percent(int64_t temp);
+void wa_set_wait_for_cc_soc_store(bool value);
+#endif
+#endif
 
 #define DEBUG_PRINT_BUFFER_SIZE 64
 static void fill_string(char *str, size_t str_len, u8 *buf, int buf_len)
@@ -1341,10 +1408,17 @@ static int fg_check_ima_exception(struct fg_chip *chip, bool check_hw_sts)
 
 	if (run_err_clr_seq) {
 		ret = fg_run_iacs_clear_sequence(chip);
+#ifdef CONFIG_LGE_PM
+		if (ret) {
+			pr_err("Error clearing IMA exception ret=%d\n", ret);
+			return -EAGAIN;
+		}
+#else
 		if (!ret)
 			return -EAGAIN;
 		else
 			pr_err("Error clearing IMA exception ret=%d\n", ret);
+#endif
 	}
 
 	return rc;
@@ -2020,12 +2094,12 @@ static void fg_handle_battery_insertion(struct fg_chip *chip)
 	schedule_delayed_work(&chip->update_sram_data, msecs_to_jiffies(0));
 }
 
-
+#ifndef CONFIG_LGE_PM
 static int soc_to_setpoint(int soc)
 {
 	return DIV_ROUND_CLOSEST(soc * 255, 100);
 }
-
+#endif
 static void batt_to_setpoint_adc(int vbatt_mv, u8 *data)
 {
 	int val;
@@ -2263,6 +2337,9 @@ static int get_prop_capacity(struct fg_chip *chip)
 		return EMPTY_CAPACITY;
 	}
 	msoc = get_monotonic_soc_raw(chip);
+#ifdef CONFIG_LGE_PM
+	lge_get_ui_soc(chip, msoc);
+#endif
 	if (msoc == 0) {
 		if (fg_reset_on_lockup && chip->use_vbat_low_empty_soc) {
 			rc = fg_get_vbatt_status(chip, &vbatt_low_sts);
@@ -2507,8 +2584,11 @@ static int fg_is_batt_id_valid(struct fg_chip *chip)
 	}
 
 	pr_debug("fg batt sts 0x%x\n", fg_batt_sts);
-
+#ifdef CONFIG_LGE_PM
+	return 1;
+#else
 	return (fg_batt_sts & BATT_IDED) ? 1 : 0;
+#endif
 }
 
 static int64_t twos_compliment_extend(int64_t val, int nbytes)
@@ -2604,6 +2684,9 @@ static int update_sram_data(struct fg_chip *chip, int *resched_ms)
 			temp = twos_compliment_extend(temp, fg_data[i].len);
 			fg_data[i].value = div64_s64(temp * chip->nom_cap_uah,
 					FULL_PERCENT_3B);
+#ifdef CONFIG_LGE_PM
+			wa_vint_error_check_percent(temp);
+#endif
 			break;
 		};
 
@@ -2640,6 +2723,26 @@ static int update_sram_data(struct fg_chip *chip, int *resched_ms)
 	if (!rc)
 		get_current_time(&chip->last_sram_update_time);
 
+#ifdef CONFIG_LGE_PM
+	if(fg_lge_debug) {
+		fg_sram_update_period_ms = 1000;
+		fg_stay_awake(&chip->lge_debug_wakeup_source);
+	} else {
+		fg_relax(&chip->lge_debug_wakeup_source);
+		fg_sram_update_period_ms = 30000;
+	}
+	pr_info("soc:[%d], soc_raw[%d], voltage:[%d], ocv:[%d], current:[%d], "
+		"batt_temp:[%d], charge_raw [%d / %lld]\n",
+		get_prop_capacity(chip),
+		get_sram_prop_now(chip, FG_DATA_BATT_SOC),
+		get_sram_prop_now(chip, FG_DATA_VOLTAGE),
+		get_sram_prop_now(chip, FG_DATA_OCV),
+		get_sram_prop_now(chip, FG_DATA_CURRENT),
+		get_sram_prop_now(chip, FG_DATA_BATT_TEMP),
+		get_sram_prop_now(chip, FG_DATA_CC_CHARGE),
+		chip->learning_data.learned_cc_uah
+	);
+#endif
 resched:
 	if (battid_valid) {
 		complete_all(&chip->batt_id_avail);
@@ -2652,7 +2755,12 @@ out:
 	return rc;
 }
 
+#ifdef CONFIG_LGE_PM
+#define SANITY_CHECK_PERIOD_MS	10000
+static bool is_battery_missing(struct fg_chip *chip);
+#else
 #define SANITY_CHECK_PERIOD_MS	5000
+#endif
 static void check_sanity_work(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
@@ -2661,6 +2769,13 @@ static void check_sanity_work(struct work_struct *work)
 	int rc = 0;
 	u8 beat_count;
 	bool tried_once = false;
+
+#ifdef CONFIG_LGE_PM
+	if(is_battery_missing(chip)) {
+		pr_err("[FG_INFO] battery missing, skip sanity work\n");
+		return;
+	}
+#endif
 
 	fg_stay_awake(&chip->sanity_wakeup_source);
 
@@ -2690,6 +2805,15 @@ try_again:
 	} else {
 		chip->last_beat_count = beat_count;
 	}
+#ifdef CONFIG_LGE_PM
+	if (fg_reset_do_it){
+		pr_err("Force FG reset!!\n");
+		fg_reset_do_it = 0;
+		fg_check_ima_error_handling(chip);
+	}
+	if (wa_vint_error_check_trigger(chip))
+		goto out;
+#endif
 resched:
 	schedule_delayed_work(
 		&chip->check_sanity_work,
@@ -3035,6 +3159,50 @@ static int fg_get_cycle_count(struct fg_chip *chip)
 	mutex_unlock(&chip->cyc_ctr.lock);
 	return count;
 }
+
+#ifdef CONFIG_LGE_PM
+static int fg_get_battery_cycle(struct fg_chip *chip)
+{
+	int i;
+	int cycle_bucket_sum = 0;
+
+	if (!chip->cyc_ctr.en)
+		return 0;
+
+	for (i = 0; i < BUCKET_COUNT; i++)
+		cycle_bucket_sum = cycle_bucket_sum + chip->cyc_ctr.count[i];
+
+	chip->battery_cycle = cycle_bucket_sum/8;
+
+	pr_info("Get battery cycle = %d\n", chip->battery_cycle);
+
+	return chip->battery_cycle;
+}
+
+static int fg_set_battery_cycle(struct fg_chip *chip, int cycle_write)
+{
+	int rc = 0, i, address;
+	u8 data[2];
+
+	//Write Battery Cycle data to FG SRAM.
+	for (i = 0; i < BUCKET_COUNT; i++) {
+		chip->cyc_ctr.count[i] = cycle_write;
+		data[0] = cycle_write & 0xFF;
+		data[1] = cycle_write >> 8;
+
+		address = BATT_CYCLE_NUMBER_REG + i * 2;
+
+		rc = fg_mem_write(chip, data, address, 2, BATT_CYCLE_OFFSET, 0);
+		if (rc)
+			pr_err("failed to write BATT_CYCLE_NUMBER[%d] rc=%d\n",
+			       i, rc);
+
+		pr_info(" Write cycle count, [%d] = %d\n",i, cycle_write);
+	}
+
+	return rc;
+}
+#endif
 
 static void half_float_to_buffer(int64_t uval, u8 *buffer)
 {
@@ -3508,7 +3676,7 @@ static int fg_get_cc_soc(struct fg_chip *chip, int *cc_soc)
 
 static int fg_get_current_cc(struct fg_chip *chip)
 {
-	int cc_soc, rc;
+	int cc_soc = 0, rc;
 	int64_t current_capacity;
 
 	if (!(chip->wa_flag & USE_CC_SOC_REG))
@@ -4549,10 +4717,15 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MIN,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_CYCLE_COUNT_ID,
+#ifdef CONFIG_LGE_PM
+	POWER_SUPPLY_PROP_BATTERY_CYCLE,
+#endif
 	POWER_SUPPLY_PROP_HI_POWER,
 	POWER_SUPPLY_PROP_SOC_REPORTING_READY,
+#ifndef CONFIG_LGE_PM
 	POWER_SUPPLY_PROP_IGNORE_FALSE_NEGATIVE_ISENSE,
 	POWER_SUPPLY_PROP_ENABLE_JEITA_DETECTION,
+#endif
 	POWER_SUPPLY_PROP_BATTERY_INFO,
 	POWER_SUPPLY_PROP_BATTERY_INFO_ID,
 };
@@ -4586,6 +4759,10 @@ static int fg_power_get_property(struct power_supply *psy,
 		val->intval = get_sram_prop_now(chip, FG_DATA_CURRENT);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+#ifdef CONFIG_LGE_PM
+		if (unified_bootmode_fabproc())
+			update_sram_data(chip, &fg_sram_update_period_ms);
+#endif
 		val->intval = get_sram_prop_now(chip, FG_DATA_VOLTAGE);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
@@ -4596,6 +4773,10 @@ static int fg_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_TEMP);
+#ifdef CONFIG_MACH_MSM8996_TF10
+		if(chip->dummy_battery_fake_temp)
+			val->intval = 250;
+#endif
 		break;
 	case POWER_SUPPLY_PROP_COOL_TEMP:
 		val->intval = get_prop_jeita_temp(chip, FG_MEM_SOFT_COLD);
@@ -4615,6 +4796,11 @@ static int fg_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CYCLE_COUNT_ID:
 		val->intval = chip->cyc_ctr.id;
 		break;
+#ifdef CONFIG_LGE_PM
+	case POWER_SUPPLY_PROP_BATTERY_CYCLE:
+		val->intval = fg_get_battery_cycle(chip);
+		break;
+#endif
 	case POWER_SUPPLY_PROP_RESISTANCE_ID:
 		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ID);
 		break;
@@ -4651,9 +4837,11 @@ static int fg_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_IGNORE_FALSE_NEGATIVE_ISENSE:
 		val->intval = !chip->allow_false_negative_isense;
 		break;
+#ifndef CONFIG_LGE_PM
 	case POWER_SUPPLY_PROP_ENABLE_JEITA_DETECTION:
 		val->intval = chip->use_soft_jeita_irq;
 		break;
+#endif
 	case POWER_SUPPLY_PROP_BATTERY_INFO:
 		if (chip->batt_info_id < 0 ||
 				chip->batt_info_id >= BATT_INFO_MAX)
@@ -4696,6 +4884,7 @@ static int fg_power_set_property(struct power_supply *psy,
 		else
 			chip->allow_false_negative_isense = !val->intval;
 		break;
+#ifndef CONFIG_LGE_PM
 	case POWER_SUPPLY_PROP_ENABLE_JEITA_DETECTION:
 		if (chip->use_soft_jeita_irq == !!val->intval) {
 			pr_debug("JEITA irq %s, ignore!\n",
@@ -4749,6 +4938,7 @@ static int fg_power_set_property(struct power_supply *psy,
 			}
 		}
 		break;
+#endif
 	case POWER_SUPPLY_PROP_STATUS:
 		chip->prev_status = chip->status;
 		chip->status = val->intval;
@@ -4781,6 +4971,11 @@ static int fg_power_set_property(struct power_supply *psy,
 			rc = -EINVAL;
 		}
 		break;
+#ifdef CONFIG_LGE_PM
+	case POWER_SUPPLY_PROP_BATTERY_CYCLE:
+		rc = fg_set_battery_cycle(chip, val->intval);
+		break;
+#endif
 	case POWER_SUPPLY_PROP_SAFETY_TIMER_EXPIRED:
 		chip->safety_timer_expired = val->intval;
 		schedule_work(&chip->status_change_work);
@@ -4811,6 +5006,9 @@ static int fg_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_COOL_TEMP:
 	case POWER_SUPPLY_PROP_WARM_TEMP:
 	case POWER_SUPPLY_PROP_CYCLE_COUNT_ID:
+#ifdef CONFIG_LGE_PM
+	case POWER_SUPPLY_PROP_BATTERY_CYCLE:
+#endif
 	case POWER_SUPPLY_PROP_BATTERY_INFO:
 	case POWER_SUPPLY_PROP_BATTERY_INFO_ID:
 		return 1;
@@ -5035,9 +5233,13 @@ static void cc_soc_store_work(struct work_struct *work)
 		fg_check_ima_error_handling(chip);
 	}
 
+#ifdef CONFIG_LGE_PM
+	wa_set_wait_for_cc_soc_store(false);
+#endif
 	fg_relax(&chip->cc_soc_wakeup_source);
 }
 
+#ifndef CONFIG_LGE_PM
 #define HARD_JEITA_ALARM_CHECK_NS	10000000000ULL
 static enum alarmtimer_restart fg_hard_jeita_alarm_cb(struct alarm *alarm,
 						ktime_t now)
@@ -5199,6 +5401,7 @@ static irqreturn_t fg_jeita_soft_cold_irq_handler(int irq, void *_chip)
 
 	return IRQ_HANDLED;
 }
+#endif
 
 #define SOC_FIRST_EST_DONE	BIT(5)
 static bool is_first_est_done(struct fg_chip *chip)
@@ -5355,7 +5558,11 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	}
 
 	/* Backup last soc every delta soc interrupt */
+#ifdef CONFIG_LGE_PM
+	wa_check_ima_error_handling_trigger(chip);
+#else
 	chip->use_last_soc = false;
+#endif
 	if (fg_reset_on_lockup) {
 		if (!chip->ima_error_handling)
 			chip->last_soc = get_monotonic_soc_raw(chip);
@@ -5425,6 +5632,9 @@ static irqreturn_t fg_empty_soc_irq_handler(int irq, void *_chip)
 	if (fg_debug_mask & FG_IRQS)
 		pr_info("triggered 0x%x\n", soc_rt_sts);
 	if (fg_is_batt_empty(chip)) {
+#ifdef CONFIG_LGE_PM
+		lge_get_ui_soc(chip, 0);
+#endif
 		fg_stay_awake(&chip->empty_check_wakeup_source);
 		schedule_delayed_work(&chip->check_empty_work,
 			msecs_to_jiffies(FG_EMPTY_DEBOUNCE_MS));
@@ -6331,7 +6541,8 @@ wait:
 
 	batt_node = of_find_node_by_name(node, "qcom,battery-data");
 	if (!batt_node) {
-		pr_warn("No available batterydata, using OTP defaults\n");
+		pr_err("No available batterydata, using OTP defaults\n");
+		pr_err("No available batterydata, using OTP defaults\n");
 		rc = 0;
 		goto no_profile;
 	}
@@ -6341,8 +6552,13 @@ wait:
 	if (fg_debug_mask & FG_STATUS)
 		pr_info("battery id = %dKOhms\n", batt_id);
 
+#ifdef CONFIG_MACH_MSM8996_TF10
+	profile_node = extension_get_batt_profile(batt_node, batt_id);
+#else
 	profile_node = of_batterydata_get_best_profile(batt_node, batt_id,
 							fg_batt_type);
+#endif
+
 	if (IS_ERR_OR_NULL(profile_node)) {
 		rc = PTR_ERR(profile_node);
 		if (rc == -EPROBE_DEFER) {
@@ -6389,6 +6605,18 @@ wait:
 	if (rc)
 		pr_warn("couldn't find battery max voltage\n");
 
+#ifdef CONFIG_MACH_MSM8996_TF10
+	if (of_property_read_bool(profile_node,
+				"lge,dummy_battery_fake_temp"))
+		chip->dummy_battery_fake_temp = true;
+	else
+		chip->dummy_battery_fake_temp = false;
+
+	pr_err("lge_get_board_revno = %d \n", lge_get_board_revno());
+
+	if (lge_get_board_revno() <= HW_REV_B)
+		chip->dummy_battery_fake_temp = true;
+#endif
 	/*
 	 * Only configure from profile if fg-cc-cv-threshold-mv is not
 	 * defined in the charger device node.
@@ -6444,9 +6672,14 @@ wait:
 		goto no_profile;
 	}
 
-
 	vbat_in_range = get_vbat_est_diff(chip)
 			< settings[FG_MEM_VBAT_EST_DIFF].value * 1000;
+#ifdef CONFIG_LGE_PM
+	pr_info("[FG_EST]:vbat_est_diff=%d,v_current_pred=%d,v=%d\n",
+		get_vbat_est_diff(chip),
+		fg_data[FG_DATA_CPRED_VOLTAGE].value,
+		fg_data[FG_DATA_VOLTAGE].value);
+#endif
 	profiles_same = memcmp(chip->batt_profile, data,
 					PROFILE_COMPARE_LEN) == 0;
 	if (reg & PROFILE_INTEGRITY_BIT) {
@@ -6567,8 +6800,26 @@ done:
 	if (chip->power_supply_registered)
 		power_supply_changed(chip->bms_psy);
 	fg_relax(&chip->profile_wakeup_source);
+#ifdef CONFIG_LGE_PM
+	extension_fg_load_icoeff_dt(chip);
+	pr_info("soc:[%d], voltage:[%d], ocv:[%d], current:[%d], batt_temp:[%d],"
+		"cycle_count : [%d], residence : [%d]\n",
+		get_prop_capacity(chip),
+		get_sram_prop_now(chip, FG_DATA_VOLTAGE),
+		get_sram_prop_now(chip, FG_DATA_OCV),
+		get_sram_prop_now(chip, FG_DATA_CURRENT),
+		get_sram_prop_now(chip, FG_DATA_BATT_TEMP),
+		fg_get_cycle_count(chip),
+		get_sram_prop_now(chip, FG_DATA_BATT_ESR)
+		);
+	cancel_delayed_work(&chip->update_sram_data);
+	schedule_delayed_work(
+			      &chip->update_sram_data,
+			      msecs_to_jiffies(0));
+#else
 	pr_info("Battery SOC: %d, V: %duV\n", get_prop_capacity(chip),
 		fg_data[FG_DATA_VOLTAGE].value);
+#endif
 	complete_all(&chip->fg_reset_done);
 	return rc;
 no_profile:
@@ -7329,6 +7580,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 			}
 			break;
 		case FG_BATT:
+#ifndef CONFIG_LGE_PM
 			chip->batt_irq[JEITA_SOFT_COLD].irq =
 				of_irq_get_byname(child, "soft-cold");
 			if (chip->batt_irq[JEITA_SOFT_COLD].irq < 0) {
@@ -7374,6 +7626,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 			}
 			disable_irq(chip->batt_irq[JEITA_SOFT_HOT].irq);
 			chip->batt_irq[JEITA_SOFT_HOT].disabled = true;
+#endif
 			chip->batt_irq[BATT_MISSING].irq =
 				of_irq_get_byname(child, "batt-missing");
 			if (chip->batt_irq[BATT_MISSING].irq < 0) {
@@ -7442,7 +7695,9 @@ static void fg_cancel_all_works(struct fg_chip *chip)
 	cancel_delayed_work_sync(&chip->check_empty_work);
 	cancel_delayed_work_sync(&chip->batt_profile_init);
 	alarm_try_to_cancel(&chip->fg_cap_learning_alarm);
+#ifndef CONFIG_LGE_PM
 	alarm_try_to_cancel(&chip->hard_jeita_alarm);
+#endif
 	if (!chip->ima_error_handling)
 		cancel_work_sync(&chip->ima_error_recovery_work);
 	cancel_work_sync(&chip->rslow_comp_work);
@@ -7487,6 +7742,9 @@ static void fg_cleanup(struct fg_chip *chip)
 	wakeup_source_trash(&chip->fg_reset_wakeup_source.source);
 	wakeup_source_trash(&chip->cc_soc_wakeup_source.source);
 	wakeup_source_trash(&chip->sanity_wakeup_source.source);
+#ifdef CONFIG_LGE_PM
+	wakeup_source_trash(&chip->lge_debug_wakeup_source.source);
+#endif
 }
 
 static int fg_remove(struct platform_device *pdev)
@@ -7988,6 +8246,9 @@ static int bcl_trim_workaround(struct fg_chip *chip)
 #define TEMP_FRAC_SHIFT_REG		0x4A4
 #define FG_ADC_CONFIG_REG		0x4B8
 #define FG_BCL_CONFIG_OFFSET		0x3
+#ifdef CONFIG_LGE_PM
+#define FG_THERM_DELAY_US		0xA0
+#endif
 #define BCL_FORCED_HPM_IN_CHARGE	BIT(2)
 #define IRQ_USE_VOLTAGE_HYST_BIT	BIT(0)
 #define EMPTY_FROM_VOLTAGE_BIT		BIT(1)
@@ -8027,9 +8288,14 @@ static int fg_common_hw_init(struct fg_chip *chip)
 		}
 	}
 
+#ifdef CONFIG_LGE_PM
+	rc = fg_mem_masked_write(chip, settings[FG_MEM_DELTA_SOC].address, 0xFF,
+			0x1, settings[FG_MEM_DELTA_SOC].offset); //delta soc 0.38% set
+#else
 	rc = fg_mem_masked_write(chip, settings[FG_MEM_DELTA_SOC].address, 0xFF,
 			soc_to_setpoint(settings[FG_MEM_DELTA_SOC].value),
 			settings[FG_MEM_DELTA_SOC].offset);
+#endif
 	if (rc) {
 		pr_err("failed to write delta soc rc=%d\n", rc);
 		return rc;
@@ -8062,6 +8328,18 @@ static int fg_common_hw_init(struct fg_chip *chip)
 			THERMAL_COEFF_ADDR, THERMAL_COEFF_N_BYTES,
 			THERMAL_COEFF_OFFSET, 0);
 	}
+
+#ifdef CONFIG_LGE_PM
+	/* batt therm adc read time delay (qcom,fg-therm-dely-us)*/
+	rc = fg_mem_masked_write(chip, settings[FG_MEM_THERM_DELAY].address,
+			THERM_DELAY_MASK,
+			FG_THERM_DELAY_US,
+			settings[FG_MEM_THERM_DELAY].offset); //40.96 msec delay
+	if (rc) {
+		pr_err("failed to write batt therm adc read time delay %d\n", rc);
+		return rc;
+	}
+#endif
 
 	if (!chip->sw_rbias_ctrl) {
 		rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
@@ -8491,6 +8769,9 @@ wait:
 
 	if (fg_debug_mask & FG_STATUS)
 		pr_info("IMA error recovery done...\n");
+#ifdef CONFIG_LGE_PM
+	wa_set_check_ima_error_handling(true);
+#endif
 out:
 	fg_restore_soc(chip);
 	fg_restore_cc_soc(chip);
@@ -8643,12 +8924,21 @@ static void delayed_init_work(struct work_struct *work)
 	if (chip->last_temp_update_time == 0)
 		update_temp_data(&chip->update_temp_work.work);
 
+#ifdef CONFIG_LGE_PM_BATTID_REDETECTION
+	battery_id_redetection(chip);
+#endif
+
 	if (!chip->use_otp_profile)
 		schedule_delayed_work(&chip->batt_profile_init, 0);
 
+#ifdef CONFIG_LGE_PM
+	schedule_delayed_work(&chip->check_sanity_work,
+			msecs_to_jiffies(10000));
+#else
 	if (chip->ima_supported && fg_reset_on_lockup)
 		schedule_delayed_work(&chip->check_sanity_work,
 			msecs_to_jiffies(1000));
+#endif
 
 	if (chip->wa_flag & IADC_GAIN_COMP_WA) {
 		rc = fg_init_iadc_config(chip);
@@ -8727,6 +9017,10 @@ static int fg_probe(struct platform_device *pdev)
 			"qpnp_fg_cc_soc");
 	wakeup_source_init(&chip->sanity_wakeup_source.source,
 			"qpnp_fg_sanity_check");
+#ifdef CONFIG_LGE_PM
+	wakeup_source_init(&chip->lge_debug_wakeup_source.source,
+			"qpnp_fg_lge_debug");
+#endif
 	spin_lock_init(&chip->sec_access_lock);
 	mutex_init(&chip->rw_lock);
 	mutex_init(&chip->cyc_ctr.lock);
@@ -8760,8 +9054,10 @@ static int fg_probe(struct platform_device *pdev)
 	INIT_WORK(&chip->cc_soc_store_work, cc_soc_store_work);
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
+#ifndef CONFIG_LGE_PM
 	alarm_init(&chip->hard_jeita_alarm, ALARM_BOOTTIME,
 			fg_hard_jeita_alarm_cb);
+#endif
 	init_completion(&chip->sram_access_granted);
 	init_completion(&chip->sram_access_revoked);
 	complete_all(&chip->sram_access_revoked);
@@ -8837,6 +9133,10 @@ static int fg_probe(struct platform_device *pdev)
 		goto of_init_fail;
 	}
 
+#ifdef CONFIG_LGE_PM
+	extension_fg_load_dt();
+#endif
+
 	if (chip->jeita_hysteresis_support) {
 		rc = fg_init_batt_temp_state(chip);
 		if (rc) {
@@ -8877,9 +9177,25 @@ static int fg_probe(struct platform_device *pdev)
 	bms_psy_cfg.supplied_to = fg_supplicants;
 	bms_psy_cfg.num_supplicants =  ARRAY_SIZE(fg_supplicants);
 	bms_psy_cfg.of_node = NULL;
+
+#ifdef CONFIG_LGE_PM_VENEER_PSY
+	fg_psy_desc_extension.name = chip->bms_psy_d.name;
+	fg_psy_desc_extension.type = chip->bms_psy_d.type;
+	fg_psy_desc_extension.external_power_changed = chip->bms_psy_d.external_power_changed;
+
+	fg_psy_desc_extension.properties = extension_bms_properties();
+	fg_psy_desc_extension.num_properties = extension_bms_num_properties();
+	fg_psy_desc_extension.get_property = extension_bms_get_property;
+	fg_psy_desc_extension.set_property = extension_bms_set_property;
+	fg_psy_desc_extension.property_is_writeable = extension_bms_property_is_writeable;
+
+	chip->bms_psy = devm_power_supply_register(chip->dev,
+			&fg_psy_desc_extension, &bms_psy_cfg);
+#else
 	chip->bms_psy = devm_power_supply_register(chip->dev,
 			&chip->bms_psy_d,
 			&bms_psy_cfg);
+#endif
 	if (IS_ERR(chip->bms_psy)) {
 		pr_err("batt failed to register rc = %ld\n",
 				PTR_ERR(chip->bms_psy));
@@ -8942,6 +9258,9 @@ of_init_fail:
 	wakeup_source_trash(&chip->fg_reset_wakeup_source.source);
 	wakeup_source_trash(&chip->cc_soc_wakeup_source.source);
 	wakeup_source_trash(&chip->sanity_wakeup_source.source);
+#ifdef CONFIG_LGE_PM
+	wakeup_source_trash(&chip->lge_debug_wakeup_source.source);
+#endif
 	return rc;
 }
 
@@ -9192,6 +9511,10 @@ static void __exit fg_exit(void)
 
 module_init(fg_init);
 module_exit(fg_exit);
+
+#ifdef CONFIG_LGE_PM_VENEER_PSY
+#include "../lge/extension-qpnp-fg.c"
+#endif
 
 MODULE_DESCRIPTION("QPNP Fuel Gauge Driver");
 MODULE_LICENSE("GPL v2");

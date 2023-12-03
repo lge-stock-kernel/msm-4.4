@@ -28,6 +28,9 @@
 #include <sound/q6core.h>
 #include "msm-dts-srs-tm-config.h"
 #include <sound/adsp_err.h>
+#ifdef CONFIG_MACH_LGE
+#define AUDIO_RX_LGE        (0x10010712)
+#endif
 
 #define TIMEOUT_MS 1000
 
@@ -2883,6 +2886,18 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		 __func__, port_id, path, rate, channel_mode, perf_mode,
 		 topology);
 
+	/* For AUDIO_RX_LGE topology only, force 24 bit */
+#ifdef CONFIG_MACH_LGE
+	if(topology == AUDIO_RX_LGE) {
+		bit_width = 24;
+	}
+#endif
+#ifdef CONFIG_SND_SOC_TFA9872
+	if (port_id == AFE_PORT_ID_TERTIARY_MI2S_RX) {
+		bit_width = 24;
+	}
+#endif
+
 	port_id = q6audio_convert_virtual_to_portid(port_id);
 	port_idx = adm_validate_and_get_port_index(port_id);
 	if (port_idx < 0) {
@@ -3026,6 +3041,7 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		if (!ret) {
 			pr_err("%s: ADM open timedout for port_id: 0x%x for [0x%x]\n",
 						__func__, tmp_port, port_id);
+			panic("[Audio BSP] Force Crash due to adm_open timed out");
 			return -EINVAL;
 		} else if (atomic_read(&this_adm.copp.stat
 					[port_idx][copp_idx]) > 0) {

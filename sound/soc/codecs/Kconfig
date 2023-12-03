@@ -113,6 +113,8 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_TAS2552 if I2C
 	select SND_SOC_TAS5086 if I2C
 	select SND_SOC_TAS571X if I2C
+	select SND_SOC_TAS2560_STEREO if I2C
+	select SND_SOC_TFA9872 if I2C
 	select SND_SOC_TFA9879 if I2C
 	select SND_SOC_TLV320AIC23_I2C if I2C
 	select SND_SOC_TLV320AIC23_SPI if SPI_MASTER
@@ -647,6 +649,16 @@ config SND_SOC_STAC9766
 
 config SND_SOC_STI_SAS
 	tristate "codec Audio support for STI SAS codec"
+
+config SND_SOC_TFA9872
+	tristate "NXP Semiconductors TFA9872 amplifier"
+        depends on MACH_LGE
+        default n
+
+config SND_SOC_TAS2560_STEREO
+	tristate "Texas Instruments TAS2560 Stereo Audio amplifier"
+	depends on MACH_LGE
+	default n
 
 config SND_SOC_TAS2552
 	tristate "Texas Instruments TAS2552 Mono Audio amplifier"

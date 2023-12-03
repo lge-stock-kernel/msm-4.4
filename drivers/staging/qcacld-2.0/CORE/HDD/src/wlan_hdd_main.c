@@ -13518,6 +13518,12 @@ VOS_STATUS hdd_start_all_adapters( hdd_context_t *pHddCtx )
             break;
       }
 
+      /* LGE_CHANGE, WIFI-3578, 20180726
+       * Action frame registered in one adapter which will
+       * applicable to all interfaces
+       */
+      wlan_hdd_cfg80211_register_frames(pAdapter);
+
       status = hdd_get_next_adapter ( pHddCtx, pAdapterNode, &pNext );
       pAdapterNode = pNext;
    }

@@ -53,6 +53,10 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/ufs.h>
 
+#ifdef CONFIG_UFS_LGE_CARD_RESET
+#include "ufs-reset-gpio.h"
+#endif
+
 #ifdef CONFIG_DEBUG_FS
 
 static int ufshcd_tag_req_type(struct request *rq)
@@ -490,6 +494,9 @@ static int ufshcd_reset_device(struct ufs_hba *hba)
 {
 	int ret;
 
+#ifdef CONFIG_UFS_LGE_CARD_RESET
+	return 0;
+#endif
 	/* reset the connected UFS device */
 	ret = ufshcd_assert_device_reset(hba);
 	if (ret)
@@ -2760,7 +2767,9 @@ void ufshcd_prepare_utp_scsi_cmd_upiu(struct ufshcd_lrb *lrbp, u32 upiu_flags)
 
 	ucd_req_ptr->sc.exp_data_transfer_len =
 		cpu_to_be32(lrbp->cmd->sdb.length);
-
+#ifdef CONFIG_LGE_MSM8996_ISB_WA
+	asm volatile ("isb\n");
+#endif
 	cdb_len = min_t(unsigned short, lrbp->cmd->cmd_len, MAX_CDB_SIZE);
 	memcpy(ucd_req_ptr->sc.cdb, lrbp->cmd->cmnd, cdb_len);
 	if (cdb_len < MAX_CDB_SIZE)
@@ -6286,8 +6295,8 @@ static void ufshcd_rls_handler(struct work_struct *work)
 	u32 mode;
 
 	hba = container_of(work, struct ufs_hba, rls_work);
-	ufshcd_scsi_block_requests(hba);
 	pm_runtime_get_sync(hba->dev);
+	ufshcd_scsi_block_requests(hba);
 	ret = ufshcd_wait_for_doorbell_clr(hba, U64_MAX);
 	if (ret) {
 		dev_err(hba->dev,
@@ -6955,6 +6964,12 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	ufshcd_hba_stop(hba, false);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+#ifdef CONFIG_UFS_LGE_CARD_RESET
+	if (UFSHCD_STATE_RESET == hba->ufshcd_state && ufshcd_eh_in_progress(hba)) {
+		ufs_card_reset(hba, false);
+	}
+#endif
 
 	/* scale up clocks to max frequency before full reinitialization */
 	ufshcd_set_clk_freq(hba, true);
@@ -10088,11 +10103,19 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	 */
 	ufshcd_set_ufs_dev_active(hba);
 
+#ifdef CONFIG_UFS_LGE_CARD_RESET
+	ufs_card_reset_init(hba);
+#endif
+
 	ufshcd_cmd_log_init(hba);
 
 	async_schedule(ufshcd_async_scan, hba);
 
 	ufsdbg_add_debugfs(hba);
+
+#ifdef CONFIG_UFS_LGE_CARD_RESET_DEBUGFS
+	ufs_card_reset_add_debugfs(hba);
+#endif
 
 	ufshcd_add_sysfs_nodes(hba);
 

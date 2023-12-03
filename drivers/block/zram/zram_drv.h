@@ -116,5 +116,12 @@ struct zram {
 #ifdef CONFIG_ZRAM_MEMORY_TRACKING
 	struct dentry *debugfs_dir;
 #endif
+#ifdef CONFIG_ZRAM_NON_SWAP
+	unsigned int non_swap;
+#endif
 };
+
+#ifdef CONFIG_HSWAP
+extern int zram0_free_size(void);
+#endif
 #endif

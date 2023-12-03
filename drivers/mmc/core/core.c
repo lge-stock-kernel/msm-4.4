@@ -3213,7 +3213,17 @@ void mmc_power_up(struct mmc_host *host, u32 ocr)
 void mmc_power_off(struct mmc_host *host)
 {
 	if (host->ios.power_mode == MMC_POWER_OFF)
+#ifdef CONFIG_MACH_LGE
+		/* LGE_CHANGE, 2015-09-23, H1-BSP-FS@lge.com
+		 * If it is already power-off, skip below.
+		 */
+	{
+		printk(KERN_INFO "[LGE][MMC][%-18s( )] host->index:%d, already power-off, skip below\n", __func__, host->index);
 		return;
+	}
+#else
+	return;
+#endif
 
 	mmc_host_clk_hold(host);
 
@@ -3378,6 +3388,9 @@ void mmc_detach_bus(struct mmc_host *host)
 	mmc_bus_put(host);
 }
 
+#ifdef CONFIG_MACH_LGE
+unsigned int is_damaged_sd = 0;
+#endif
 static void _mmc_detect_change(struct mmc_host *host, unsigned long delay,
 				bool cd_irq)
 {
@@ -3396,6 +3409,10 @@ static void _mmc_detect_change(struct mmc_host *host, unsigned long delay,
 		device_can_wakeup(mmc_dev(host)))
 		pm_wakeup_event(mmc_dev(host), 5000);
 
+#ifdef CONFIG_MACH_LGE
+	if (!(host->caps & MMC_CAP_NONREMOVABLE) && is_damaged_sd)
+		goto skip_detect;
+#endif
 	host->detect_change = 1;
 	/*
 	 * Change in cd_gpio state, so make sure detection part is
@@ -3405,6 +3422,11 @@ static void _mmc_detect_change(struct mmc_host *host, unsigned long delay,
 		host->ignore_bus_resume_flags = true;
 
 	mmc_schedule_delayed_work(&host->detect, delay);
+
+#ifdef CONFIG_MACH_LGE
+skip_detect:
+	return;
+#endif
 }
 
 /**
@@ -4229,6 +4251,10 @@ int _mmc_detect_card_removed(struct mmc_host *host)
 		}
 	}
 
+#ifdef CONFIG_MACH_LGE
+	printk(KERN_INFO "[LGE][MMC][%-18s( )] end, mmc%d, return %d\n", __func__, host->index, ret);
+#endif
+
 	return ret;
 }
 
@@ -4285,6 +4311,27 @@ void mmc_rescan(struct work_struct *work)
 	struct mmc_host *host =
 		container_of(work, struct mmc_host, detect.work);
 
+#ifdef CONFIG_MACH_LGE
+	int err = 0;
+	/* LGE_CHANGE, 2015-09-23, H1-BSP-FS@lge.com
+	* Adding Print
+	*/
+	printk(KERN_INFO "[LGE][MMC][%-18s( ) START!] mmc%d\n", __func__, host->index);
+#endif
+
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME_WAKE_UP
+	if (host->trigger_card_event && host->ops->card_event) {
+		host->ops->card_event(host);
+	}
+
+	spin_lock_irqsave(&host->lock, flags);
+	if (host->rescan_disable) {
+		spin_unlock_irqrestore(&host->lock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(&host->lock, flags);
+	host->trigger_card_event = false;
+#else
 	if (host->trigger_card_event && host->ops->card_event) {
 		host->ops->card_event(host);
 		host->trigger_card_event = false;
@@ -4296,6 +4343,7 @@ void mmc_rescan(struct work_struct *work)
 		return;
 	}
 	spin_unlock_irqrestore(&host->lock, flags);
+#endif
 
 	/* If there is a non-removable card registered, only scan once */
 	if ((host->caps & MMC_CAP_NONREMOVABLE) && host->rescan_entered)
@@ -4344,9 +4392,19 @@ void mmc_rescan(struct work_struct *work)
 	}
 
 	mmc_claim_host(host);
+#ifdef CONFIG_MACH_LGE
+	err = mmc_rescan_try_freq(host, host->f_min);
+#else
 	mmc_rescan_try_freq(host, host->f_min);
+#endif
 	mmc_release_host(host);
 
+#ifdef CONFIG_MACH_LGE
+	if (err == -EIO && !(host->caps & MMC_CAP_NONREMOVABLE)) {
+		printk(KERN_INFO "[LGE][MMC][%-18s( )] mmc%d: SDcard is damaged\n", __func__, host->index);
+		is_damaged_sd = 1;
+	}
+#endif
  out:
 	if (host->caps & MMC_CAP_NEEDS_POLL)
 		mmc_schedule_delayed_work(&host->detect, HZ);
@@ -4587,12 +4645,22 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 		if (mmc_card_is_removable(host))
 			present = !!mmc_gpio_get_cd(host);
 
+#ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME_WAKE_UP
+		if (!host->trigger_card_event &&
+				mmc_bus_manual_resume(host) &&
+				!host->ignore_bus_resume_flags &&
+				present) {
+			spin_unlock_irqrestore(&host->lock, flags);
+			break;
+		}
+#else
 		if (mmc_bus_manual_resume(host) &&
 				!host->ignore_bus_resume_flags &&
 				present) {
 			spin_unlock_irqrestore(&host->lock, flags);
 			break;
 		}
+#endif
 		spin_unlock_irqrestore(&host->lock, flags);
 		_mmc_detect_change(host, 0, false);
 

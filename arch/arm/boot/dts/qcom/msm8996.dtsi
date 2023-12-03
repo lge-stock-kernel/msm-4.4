@@ -36,6 +36,8 @@
 		pci-domain0 = &pcie0;
 		pci-domain1 = &pcie1;
 		pci-domain2 = &pcie2;
+		i2c1 = &i2c_1;
+		i2c3 = &i2c_3;
 		i2c6 = &i2c_6;
 		i2c7 = &i2c_7;
 		i2c8 = &i2c_8;
@@ -194,10 +196,18 @@
 				compatible = "android,fstab";
 				android_vendor: vendor {
 					compatible = "android,vendor";
-					dev = "/dev/block/platform/soc/7464900.sdhci/by-name/vendor";
+					dev = "/dev/block/platform/soc/624000.ufshc/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait,avb";
+					fsmgr_flags = "wait,slotselect";
+					status = "ok";
+				};
+				product {
+					compatible = "android,product";
+					dev = "/dev/block/platform/soc/624000.ufshc/by-name/product";
+					type = "ext4";
+					mnt_flags = "ro,barrier=1,discard";
+					fsmgr_flags = "wait,slotselect";
 					status = "ok";
 				};
 			};
@@ -250,16 +260,22 @@
 			no-map;
 			reg = <0 0x88800000 0 0x6200000>;
 		};
-
+/* LGE DO NOT USE
 		dfps_data_mem: dfps_data_mem@83400000 {
 		       reg = <0 0x83400000 0 0x1000>;
 		       label = "dfps_data_mem";
 		};
+*/
+		//LGE customize
+		//cont_splash_mem: cont_splash_mem@83401000 {
+		//	reg = <0 0x83401000 0 0x23FF000>;
+		//	label = "cont_splash_mem";
+		//};
+	        cont_splash_mem: cont_splash_mem@84201000 {
+	                reg = <0 0x84201000 0 0x15FF000>;
+        	        label = "cont_splash_mem";
+	        };
 
-		cont_splash_mem: cont_splash_mem@83401000 {
-			reg = <0 0x83401000 0 0x23FF000>;
-			label = "cont_splash_mem";
-		};
 
 		cont_splash_mem_hdmi: cont_splash_mem_hdmi@bdd00000 {
 			reg = <0 0xb1c00000 0 0x23ff000>;
@@ -432,6 +448,52 @@
 		interrupts = <0 239 0>;
 		qcom,summing-threshold = <0x10>;
 	};
+
+	i2c_1: i2c@7575000 { /* BLSP1 QUP1 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0x7575000 0x1000>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 95 0>;
+		dmas = <&dma_blsp1 6 64 0x20000020 0x20>,
+			<&dma_blsp1 7 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		qcom,master-id = <86>;
+		qcom,clk-freq-out = <400000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp1_qup1_i2c_apps_clk>;
+		pinctrl-names = "default", "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_1_default>;
+		pinctrl-1 = <&i2c_1_active>;
+		pinctrl-2 = <&i2c_1_sleep>;
+	};
+
+        i2c_3: i2c@7577000 {
+                compatible = "qcom,i2c-msm-v2";
+                #address-cells = <1>;
+                #size-cells = <0>;
+                reg-names = "qup_phys_addr";
+                reg = <0x7577000 0x1000>;
+                interrupt-names = "qup_irq";
+                interrupts = <0 97 0>;
+                dmas = <&dma_blsp1 16 64 0x20000020 0x20>,
+                                <&dma_blsp1 17 32 0x20000020 0x20>;
+                dma-names = "tx", "rx";
+                qcom,master-id = <86>;
+                qcom,clk-freq-out = <400000>;
+                qcom,clk-freq-in  = <19200000>;
+                clock-names = "iface_clk", "core_clk";
+                clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+                <&clock_gcc clk_gcc_blsp1_qup3_i2c_apps_clk>;
+                pinctrl-names = "i2c_active", "i2c_sleep", "i2c_bitbang";
+                pinctrl-0 = <&i2c_3_active>;
+                pinctrl-1 = <&i2c_3_sleep>;
+                pinctrl-2 = <&i2c_3_bitbang>;
+        };
 
 	i2c_6: i2c@757a000 { /* BLSP1 QUP6 */
 		compatible = "qcom,i2c-msm-v2";
@@ -1060,7 +1122,7 @@
 						   "cdc-vddpx-1";
 
 			qcom,cdc-micbias1-mv = <1800>;
-			qcom,cdc-micbias2-mv = <1800>;
+			qcom,cdc-micbias2-mv = <2000>;
 			qcom,cdc-micbias3-mv = <1800>;
 			qcom,cdc-micbias4-mv = <1800>;
 
@@ -2278,6 +2340,8 @@
 				 0x514 0x03 0x00
 				 0x518 0x18 0x00
 				 0x51c 0x16 0x00
+				 0x22c 0x3f 0x00 /* Tx swing */
+				 0x218 0x3f 0x00 /* Tx de-emphasis */
 				 0x268 0x45 0x00 /* Tx settings */
 				 0x2ac 0x12 0x00
 				 0x294 0x06 0x00
@@ -2421,20 +2485,20 @@
 					/* Up to 800 Mbps */
 					<45 512 207108 14432000>;
 	};
-
-	wil6210: qcom,wil6210 {
-		compatible = "qcom,wil6210";
-		qcom,pcie-parent = <&pcie1>;
-		qcom,wigig-en = <&tlmm 94 0>;
-		qcom,sleep-clk-en = <&pm8994_gpios 18 0>;
-		qcom,msm-bus,name = "wil6210";
-		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-			<100 512 0 0>,
-			<100 512 600000 800000>; /* ~4.6Gbps (MCS12) */
-		status = "disabled";
-	};
+/* LGE DO NOT USE */
+//	wil6210: qcom,wil6210 {
+//		compatible = "qcom,wil6210";
+//		qcom,pcie-parent = <&pcie1>;
+//		qcom,wigig-en = <&tlmm 94 0>;
+//		qcom,sleep-clk-en = <&pm8994_gpios 18 0>;
+//		qcom,msm-bus,name = "wil6210";
+//		qcom,msm-bus,num-cases = <2>;
+//		qcom,msm-bus,num-paths = <1>;
+//		qcom,msm-bus,vectors-KBps =
+//			<100 512 0 0>,
+//			<100 512 600000 800000>; /* ~4.6Gbps (MCS12) */
+//		status = "disabled";
+//	};
 
 	qcom,ssc@1c00000 {
 		compatible = "qcom,pil-tz-generic";
@@ -2804,17 +2868,17 @@
 		qcom,ce-opp-freq = <171430000>;
 		qcom,qsee-reentrancy-support = <2>;
 	};
-
-	qcom,qbt1000 {
-		compatible = "qcom,qbt1000";
-		qcom,fingerprint-sensor-ssc-spi-conn {
-			qcom,spi-port-id = <2>;
-			qcom,spi-port-slave-index = <0>;
-			qcom,tz-subsys-id = <1>;
-			qcom,ssc-subsys-id = <5>;
-			clock-frequency = <15000000>;
-		};
-	};
+/* LGE DO NOT USE */
+//	qcom,qbt1000 {
+//		compatible = "qcom,qbt1000";
+//		qcom,fingerprint-sensor-ssc-spi-conn {
+//			qcom,spi-port-id = <2>;
+//			qcom,spi-port-slave-index = <0>;
+//			qcom,tz-subsys-id = <1>;
+//			qcom,ssc-subsys-id = <5>;
+//			clock-frequency = <15000000>;
+//		};
+//	};
 
 	qcom,sensor-information {
 		compatible = "qcom,sensor-information";

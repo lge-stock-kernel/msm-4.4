@@ -749,8 +749,9 @@ static void gic_send_sgi(u64 cluster_id, u16 tlist, unsigned int irq)
 	       irq << ICC_SGI1R_SGI_ID_SHIFT		|
 	       MPIDR_TO_SGI_AFFINITY(cluster_id, 1)	|
 	       tlist << ICC_SGI1R_TARGET_LIST_SHIFT);
-
+#ifndef CONFIG_DEBUG_LOCKS_ON_BUG
 	pr_devel("CPU%d: ICC_SGI1R_EL1 %llx\n", smp_processor_id(), val);
+#endif
 	gic_write_sgi1r(val);
 }
 

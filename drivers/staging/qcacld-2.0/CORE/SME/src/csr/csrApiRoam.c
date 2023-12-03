@@ -10611,7 +10611,7 @@ tANI_BOOLEAN csrRoamIssueWmStatusChange( tpAniSirGlobal pMac, tANI_U32 sessionId
                          pSmeRsp,
                          sizeof( pCommand->u.wmStatusChangeCmd.u.DeauthIndMsg ));
         }
-        if( HAL_STATUS_SUCCESS( csrQueueSmeCommand(pMac, pCommand, eANI_BOOLEAN_TRUE) ) )
+        if( HAL_STATUS_SUCCESS( csrQueueSmeCommand(pMac, pCommand, eANI_BOOLEAN_FALSE) ) )
         {
             fCommandQueued = eANI_BOOLEAN_TRUE;
         }
@@ -11901,7 +11901,7 @@ tANI_BOOLEAN csrRoamCompleteRoaming(tpAniSirGlobal pMac, tANI_U32 sessionId,
                                     tANI_BOOLEAN fForce, eCsrRoamResult roamResult)
 {
     tANI_BOOLEAN fCompleted = eANI_BOOLEAN_TRUE;
-    tANI_TIMESTAMP roamTime = (tANI_TIMESTAMP)(pMac->roam.configParam.nRoamingTime * PAL_TICKS_PER_SECOND);
+    tANI_TIMESTAMP roamTime = (tANI_TIMESTAMP)(pMac->roam.configParam.nRoamingTime) * PAL_TICKS_PER_SECOND; //LGE WBT
     tANI_TIMESTAMP curTime = (tANI_TIMESTAMP)palGetTickCount(pMac->hHdd);
     tCsrRoamSession *pSession = CSR_GET_SESSION( pMac, sessionId );
     if(!pSession)

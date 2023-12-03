@@ -35,6 +35,10 @@
 #include "mdss_dsi_phy.h"
 #include "mdss_dba_utils.h"
 
+#ifdef CONFIG_LGE_DISPLAY_COMMON
+extern void lge_mdss_post_dsi_event_handler(struct mdss_dsi_ctrl_pdata *ctrl, int event, void *arg);
+#endif
+
 #define CMDLINE_DSI_CTL_NUM_STRING_LEN 2
 
 /* Master structure to hold all the information about the DSI/panel */
@@ -185,8 +189,13 @@ static void mdss_dsi_pm_qos_update_request(int val)
 	pm_qos_update_request(&mdss_dsi_pm_qos_request, val);
 }
 
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_COMMON)
+int mdss_dsi_pinctrl_set_state(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
+	bool active);
+#else
 static int mdss_dsi_pinctrl_set_state(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 					bool active);
+#endif
 
 static struct mdss_dsi_ctrl_pdata *mdss_dsi_get_ctrl(u32 ctrl_id)
 {
@@ -363,6 +372,11 @@ static int mdss_dsi_regulator_init(struct platform_device *pdev,
 	return rc;
 }
 
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_OVERRIDE_MDSS_DSI_PANEL_POWER_OFF)
+/*
+ * mdss_dsi_panel_power_off() should be defined in other file.
+ */
+#else
 static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
@@ -396,7 +410,13 @@ static int mdss_dsi_panel_power_off(struct mdss_panel_data *pdata)
 end:
 	return ret;
 }
+#endif
 
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_OVERRIDE_MDSS_DSI_PANEL_POWER_ON)
+/*
+ * mdss_dsi_panel_power_on() should be defined in other file.
+ */
+#else
 static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 {
 	int ret = 0;
@@ -438,6 +458,7 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 
 	return ret;
 }
+#endif
 
 static int mdss_dsi_panel_power_lp(struct mdss_panel_data *pdata, int enable)
 {
@@ -1579,9 +1600,15 @@ end:
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_COMMON)
+int mdss_dsi_pinctrl_set_state(
+		struct mdss_dsi_ctrl_pdata *ctrl_pdata,
+		bool active)
+#else
 static int mdss_dsi_pinctrl_set_state(
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 	bool active)
+#endif
 {
 	struct pinctrl_state *pin_state;
 	struct mdss_panel_info *pinfo = NULL;
@@ -3113,6 +3140,9 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	}
 	pr_debug("%s-:event=%d, rc=%d\n", __func__, event, rc);
+#ifdef CONFIG_LGE_DISPLAY_COMMON
+	lge_mdss_post_dsi_event_handler(ctrl_pdata, event, arg);
+#endif
 	return rc;
 }
 
@@ -4559,7 +4589,13 @@ static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 	if (!gpio_is_valid(ctrl_pdata->rst_gpio))
 		pr_err("%s:%d, reset gpio not specified\n",
 						__func__, __LINE__);
-
+#ifdef CONFIG_PXLW_IRIS3_BRIDGE_IC
+	ctrl_pdata->iris_rst_gpio= of_get_named_gpio(ctrl_pdev->dev.of_node,
+			"qcom,platform-iris-reset-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->iris_rst_gpio))
+		pr_err("%s:%d, iris reset gpio not specified\n",
+						__func__, __LINE__);
+#endif
 	ctrl_pdata->lcd_mode_sel_gpio = of_get_named_gpio(
 			ctrl_pdev->dev.of_node, "qcom,panel-mode-gpio", 0);
 	if (!gpio_is_valid(ctrl_pdata->lcd_mode_sel_gpio)) {
@@ -4672,6 +4708,9 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 		return rc;
 	}
 
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_COMMON)
+	lge_mdss_dsi_parse_extra_params(ctrl_pdev, ctrl_pdata);
+#endif
 	if (mdss_dsi_retrieve_ctrl_resources(ctrl_pdev,
 					     pinfo->pdest,
 					     ctrl_pdata)) {
@@ -4790,7 +4829,11 @@ static struct platform_driver mdss_dsi_driver = {
 static struct platform_driver mdss_dsi_ctrl_driver = {
 	.probe = mdss_dsi_ctrl_probe,
 	.remove = mdss_dsi_ctrl_remove,
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_OVERRIDE_MDSS_DSI_CTRL_SHUTDOWN)
+	.shutdown = mdss_dsi_ctrl_shutdown,
+#else
 	.shutdown = NULL,
+#endif
 	.driver = {
 		.name = "mdss_dsi_ctrl",
 		.of_match_table = mdss_dsi_ctrl_dt_match,

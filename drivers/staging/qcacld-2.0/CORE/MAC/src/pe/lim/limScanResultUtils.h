@@ -68,13 +68,13 @@ void
 lim_update_max_txpower_ind(tpAniSirGlobal mac_ptr, tpPESession session_ptr);
 
 #if defined WLAN_FEATURE_VOWIFI
-void    limCollectBssDescription(tpAniSirGlobal,
+eHalStatus    limCollectBssDescription(tpAniSirGlobal,
                                  tSirBssDescription *,
                                  tpSirProbeRespBeacon,
                                  tANI_U8 *,
                                  tANI_U8);
 #else
-void    limCollectBssDescription(tpAniSirGlobal,
+eHalStatus    limCollectBssDescription(tpAniSirGlobal,
                                  tSirBssDescription *,
                                  tpSirProbeRespBeacon,
                                  tANI_U8 *);
