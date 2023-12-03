@@ -33,6 +33,10 @@
 #include <linux/input/qpnp-power-on.h>
 #include <linux/power_supply.h>
 
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+#include <soc/qcom/lge/lge_handle_panic.h>
+#endif
+
 #define PMIC_VER_8941           0x01
 #define PMIC_VERSION_REG        0x0105
 #define PMIC_VERSION_REV4_REG   0x0103
@@ -298,6 +302,27 @@ static const char * const qpnp_poff_reason[] = {
 	[39] = "Triggered from S3_RESET_KPDPWR_ANDOR_RESIN (power key and/or reset line)",
 };
 
+#ifdef CONFIG_LGE_HANDLE_PANIC
+static const char * const pon_ps_hold_reset_ctl[] = {
+	[0] = "RESERVED0",
+	[1] = "WARM_RESET",
+	[2] = "IMMEDIATE_XVDD_SHUTDOWN",
+	[3] = "RESERVED3",
+	[4] = "SHUTDOWN",
+	[5] = "DVDD_SHUTDOWN",
+	[6] = "XVDD_SHUTDOWN",
+	[7] = "HARD_RESET",
+	[8] = "DVDD_HARD_RESET",
+	[9] = "XVDD_HARD_RESET",
+	[10] = "WARM_RESET_AND_DVDD_SHUTDOWN",
+	[11] = "WARM_RESET_AND_XVDD_SHUTDOWN",
+	[12] = "WARM_RESET_AND_SHUTDOWN",
+	[13] = "WARM_RESET_THEN_HARD_RESET",
+	[14] = "WARM_RESET_THEN_DVDD_HARD_RESET",
+	[15] = "WARM_RESET_THEN_XVDD_HARD_RESET",
+};
+#endif
+
 static int
 qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
 {
@@ -533,7 +558,12 @@ static int qpnp_pon_reset_config(struct qpnp_pon *pon,
 			"Unable to write to addr=%hx, rc(%d)\n",
 			rst_en_reg, rc);
 
-	dev_dbg(&pon->pdev->dev, "power off type = 0x%02X\n", type);
+#ifdef CONFIG_LGE_HANDLE_PANIC
+		dev_info(&pon->pdev->dev, "power off type = 0x%02X, %s\n",
+					type, pon_ps_hold_reset_ctl[type]);
+#else
+		dev_dbg(&pon->pdev->dev, "power off type = 0x%02X\n", type);
+#endif
 	return rc;
 }
 
@@ -864,6 +894,10 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 
 	input_report_key(pon->pon_input, cfg->key_code, key_status);
 	input_sync(pon->pon_input);
+
+#if defined(CONFIG_LGE_HANDLE_PANIC)
+	lge_gen_key_panic(cfg->key_code, key_status);
+#endif
 
 	cfg->old_state = !!key_status;
 

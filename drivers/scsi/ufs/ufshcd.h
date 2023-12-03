@@ -957,6 +957,9 @@ struct ufs_hba {
 	struct io_latency_state io_lat_read;
 	struct io_latency_state io_lat_write;
 	bool restore_needed;
+#ifdef CONFIG_UFS_LGE_CARD_RESET
+	void*	card_reset_info;
+#endif
 };
 
 static inline void ufshcd_mark_shutdown_ongoing(struct ufs_hba *hba)

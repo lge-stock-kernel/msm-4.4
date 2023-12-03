@@ -79,6 +79,7 @@ enum pageflags {
 	PG_dirty,
 	PG_lru,
 	PG_active,
+	PG_workingset,
 	PG_slab,
 	PG_owner_priv_1,	/* Owner use. If pagecache, fs may use*/
 	PG_arch_1,
@@ -110,6 +111,9 @@ enum pageflags {
 #endif
 #ifdef CONFIG_ZCACHE
 	PG_was_active,
+#endif
+#ifdef CONFIG_NON_SWAP
+	PG_non_swap,
 #endif
 	__NR_PAGEFLAGS,
 
@@ -271,6 +275,7 @@ PAGEFLAG(Dirty, dirty, PF_ANY) TESTSCFLAG(Dirty, dirty, PF_ANY)
 PAGEFLAG(LRU, lru, PF_ANY) __CLEARPAGEFLAG(LRU, lru, PF_ANY)
 PAGEFLAG(Active, active, PF_ANY) __CLEARPAGEFLAG(Active, active, PF_ANY)
 	TESTCLEARFLAG(Active, active, PF_ANY)
+PAGEFLAG(Workingset, workingset, PF_ANY)
 __PAGEFLAG(Slab, slab, PF_ANY)
 PAGEFLAG(Checked, checked, PF_ANY)		/* Used by some filesystems */
 PAGEFLAG(Pinned, pinned, PF_ANY) TESTSCFLAG(Pinned, pinned, PF_ANY)	/* Xen */
@@ -318,6 +323,11 @@ PAGEFLAG(Readahead, reclaim, PF_ANY) TESTCLEARFLAG(Readahead, reclaim, PF_ANY)
 #define PageHighMem(__p) is_highmem_idx(page_zonenum(__p))
 #else
 PAGEFLAG_FALSE(HighMem)
+#endif
+
+#ifdef CONFIG_NON_SWAP
+PAGEFLAG(NonSwap, non_swap, PF_NO_TAIL)
+	TESTSCFLAG(NonSwap, non_swap, PF_NO_TAIL)
 #endif
 
 #ifdef CONFIG_SWAP

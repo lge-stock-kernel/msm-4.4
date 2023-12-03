@@ -903,6 +903,11 @@ void dbg_print(u8 ep_num, const char *name, int status, const char *extra)
 	if (dbg_dwc3_data.tty != 0)
 		pr_notice("%s\t? %02X %-7.7s %4i ?\t%s\n",
 			  get_timestamp(tbuf), ep_num, name, status, extra);
+#ifdef CONFIG_LGE_USB
+	else
+		pr_debug("%02X %-7.7s %4i ?\t%s\n",
+			 ep_num, name, status, extra);
+#endif
 }
 
 /**

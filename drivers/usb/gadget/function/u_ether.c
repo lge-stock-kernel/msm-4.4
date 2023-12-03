@@ -451,12 +451,35 @@ static void process_rx_w(struct work_struct *work)
 		if (status < 0
 				|| ETH_HLEN > skb->len
 				|| skb->len > ETH_FRAME_LEN) {
+#ifdef CONFIG_LGE_USB_GADGET
+		/*
+		  Need to revisit net->mtu	does not include header size incase of changed MTU
+		*/
+			if(!strcmp(dev->port_usb->func.name,"ncm")) {
+				if (status < 0
+					|| ETH_HLEN > skb->len
+					|| skb->len > (dev->net->mtu + ETH_HLEN)) {
+					printk(KERN_ERR "usb: %s  drop incase of NCM rx length %d\n",__func__,skb->len);
+				} else {
+					printk(KERN_ERR "usb: %s  Dont drop incase of NCM rx length %d\n",__func__,skb->len);
+					goto process_frame;
+				}
+			}
+#endif
 			dev->net->stats.rx_errors++;
 			dev->net->stats.rx_length_errors++;
+#ifndef CONFIG_LGE_USB_GADGET
+			DBG(dev, "rx length %d\n", skb->len);
+#else
+			printk(KERN_DEBUG "usb: %s Drop rx length %d\n",__func__,skb->len);
+#endif
 			DBG(dev, "rx length %d\n", skb->len);
 			dev_kfree_skb_any(skb);
 			continue;
 		}
+#ifdef CONFIG_LGE_USB_GADGET
+process_frame:
+#endif
 		skb->protocol = eth_type_trans(skb, dev->net);
 		dev->net->stats.rx_packets++;
 		dev->net->stats.rx_bytes += skb->len;
@@ -495,6 +518,9 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 	default:
 		dev->net->stats.tx_errors++;
 		VDBG(dev, "tx err %d\n", req->status);
+#ifdef CONFIG_LGE_USB_GADGET
+		printk(KERN_ERR"usb:%s tx err %d\n",__func__, req->status);
+#endif
 		/* FALLTHROUGH */
 	case -ECONNRESET:		/* unlink */
 	case -ESHUTDOWN:		/* disconnect etc */
@@ -1132,8 +1158,11 @@ int gether_get_host_addr_cdc(struct net_device *net, char *host_addr, int len)
 		return -EINVAL;
 
 	dev = netdev_priv(net);
+#ifdef CONFIG_LGE_USB_GADGET
 	snprintf(host_addr, len, "%pm", dev->host_mac);
-
+#else
+	snprintf(host_addr, len, "%pM", dev->host_mac);
+#endif
 	return strlen(host_addr);
 }
 EXPORT_SYMBOL_GPL(gether_get_host_addr_cdc);

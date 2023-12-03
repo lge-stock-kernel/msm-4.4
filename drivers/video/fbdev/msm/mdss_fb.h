@@ -240,10 +240,18 @@ struct msm_mdp_interface {
 };
 
 #define IS_CALIB_MODE_BL(mfd) (((mfd)->calib_mode) & MDSS_CALIB_MODE_BL)
+#ifdef CONFIG_LGE_DISPLAY_COMMON
+/* TODO: fix it: using local variable mfd in macro function */
+#define MDSS_BRIGHT_TO_BL(out, v, bl_max, max_bright) do {\
+				out = lge_br_to_bl(mfd, v);\
+				} while (0)
+#else /* qct original */
 #define MDSS_BRIGHT_TO_BL(out, v, bl_max, max_bright) do {\
 				out = (2 * (v) * (bl_max) + max_bright);\
 				do_div(out, 2 * max_bright);\
 				} while (0)
+#endif
+
 #define MDSS_BL_TO_BRIGHT(out, v, bl_max, max_bright) do {\
 				out = (2 * ((v) * (max_bright)) + (bl_max));\
 				do_div(out, 2 * bl_max);\
@@ -317,6 +325,9 @@ struct msm_fb_data_type {
 	u32 unset_bl_level;
 	bool allow_bl_update;
 	u32 bl_level_scaled;
+#ifdef CONFIG_LGE_DISPLAY_COMMON
+	u32 br_level_val;
+#endif
 	u32 bl_level_usr;
 	struct mutex bl_lock;
 	struct mutex mdss_sysfs_lock;

@@ -1233,6 +1233,10 @@ static int smb1351_set_usb_chg_current(struct smb1351_charger *chip,
 		return 0;
 	}
 
+#ifdef CONFIG_LGE_PM
+	pr_err("Parallel USB current_ma set = %d\n", current_ma);
+#endif
+
 	/* set suspend bit when urrent_ma <= 2 */
 	if (current_ma <= SUSPEND_CURRENT_MA) {
 		smb1351_usb_suspend(chip, CURRENT, true);
@@ -1409,6 +1413,9 @@ static int smb1351_battery_get_property(struct power_supply *psy,
 
 static enum power_supply_property smb1351_parallel_properties[] = {
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
+#ifdef CONFIG_LGE_PM
+	POWER_SUPPLY_PROP_PRESENT,
+#endif
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
@@ -1419,6 +1426,91 @@ static enum power_supply_property smb1351_parallel_properties[] = {
 	POWER_SUPPLY_PROP_INPUT_SUSPEND,
 	POWER_SUPPLY_PROP_MODEL_NAME,
 };
+
+#ifdef CONFIG_LGE_PM
+static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
+						int suspend)
+{
+	int rc;
+	u8 reg, mask = 0;
+
+	if (chip->parallel_charger_suspended == suspend) {
+		pr_debug("Skip same state request suspended = %d suspend=%d\n",
+				chip->parallel_charger_suspended, !suspend);
+		return 0;
+	}
+
+	pr_err("smb1351_parallel_set_chg_present =%d\n", suspend);
+
+	if (!suspend) {
+		rc = smb_chip_get_version(chip);
+		if (rc) {
+			pr_err("Couldn't get version rc = %d\n", rc);
+			return rc;
+		}
+
+		rc = smb1351_enable_volatile_writes(chip);
+		if (rc) {
+			pr_err("Couldn't configure for volatile rc = %d\n", rc);
+			return rc;
+		}
+
+		/* control USB suspend via command bits */
+		rc = smb1351_masked_write(chip, VARIOUS_FUNC_REG,
+					APSD_EN_BIT | SUSPEND_MODE_CTRL_BIT,
+						SUSPEND_MODE_CTRL_BY_I2C);
+		if (rc) {
+			pr_err("Couldn't set USB suspend rc=%d\n", rc);
+			return rc;
+		}
+
+		/*
+		 * When present is being set force USB suspend, start charging
+		 * only when POWER_SUPPLY_PROP_CURRENT_MAX is set.
+		 */
+		rc = smb1351_usb_suspend(chip, CURRENT, true);
+		if (rc) {
+			pr_err("failed to suspend rc=%d\n", rc);
+			return rc;
+		}
+		chip->usb_psy_ma = SUSPEND_CURRENT_MA;
+
+		/* set chg en by pin active low  */
+		reg = chip->parallel_pin_polarity_setting | USBCS_CTRL_BY_I2C;
+		rc = smb1351_masked_write(chip, CHG_PIN_EN_CTRL_REG,
+					EN_PIN_CTRL_MASK | USBCS_CTRL_BIT, reg);
+		if (rc) {
+			pr_err("Couldn't set en pin rc=%d\n", rc);
+			return rc;
+		}
+
+		/*
+		 * setup USB 2.0/3.0 detection and USB 500/100
+		 * command polarity
+		 */
+		reg = USB_2_3_MODE_SEL_BY_I2C | USB_CMD_POLARITY_500_1_100_0;
+		mask = USB_2_3_MODE_SEL_BIT | USB_5_1_CMD_POLARITY_BIT;
+		rc = smb1351_masked_write(chip,
+				CHG_OTH_CURRENT_CTRL_REG, mask, reg);
+		if (rc) {
+			pr_err("Couldn't set CHG_OTH_CURRENT_CTRL_REG rc=%d\n",
+					rc);
+			return rc;
+		}
+
+		chip->parallel_charger_suspended = false;
+	} else {
+		rc = smb1351_usb_suspend(chip, CURRENT, true);
+		if (rc)
+			pr_debug("failed to suspend rc=%d\n", rc);
+
+		chip->usb_psy_ma = SUSPEND_CURRENT_MA;
+		chip->parallel_charger_suspended = true;
+	}
+
+	return 0;
+}
+#endif
 
 static int smb1351_parallel_set_chg_suspend(struct smb1351_charger *chip,
 						int suspend)
@@ -1610,6 +1702,12 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 		if (!chip->parallel_charger_suspended)
 			rc = smb1351_usb_suspend(chip, USER, !val->intval);
 		break;
+#ifdef CONFIG_LGE_PM
+	case POWER_SUPPLY_PROP_PRESENT:
+		chip->chg_present = val->intval;
+		rc = smb1351_parallel_set_chg_present(chip, !val->intval);
+		break;
+#endif
 	case POWER_SUPPLY_PROP_INPUT_SUSPEND:
 		rc = smb1351_parallel_set_chg_suspend(chip, val->intval);
 		break;
@@ -1633,7 +1731,11 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 						chip->usb_psy_ma);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+#ifdef CONFIG_LGE_PM
+		chip->vfloat_mv = val->intval;
+#else
 		chip->vfloat_mv = val->intval / 1000;
+#endif
 		if (!chip->parallel_charger_suspended)
 			rc = smb1351_float_voltage_set(chip, chip->vfloat_mv);
 		break;
@@ -1664,6 +1766,11 @@ static int smb1351_parallel_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		val->intval = !chip->parallel_charger_suspended;
 		break;
+#ifdef CONFIG_LGE_PM
+	case POWER_SUPPLY_PROP_PRESENT:
+		val->intval = chip->chg_present;
+		break;
+#endif
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		if (!chip->parallel_charger_suspended)
 			val->intval = chip->usb_psy_ma * 1000;

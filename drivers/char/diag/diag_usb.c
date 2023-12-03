@@ -289,9 +289,20 @@ static void usb_read_done_work_fn(struct work_struct *work)
 	 * USB is disconnected/Disabled before the previous read completed.
 	 * Discard the packet and don't do any further processing.
 	 */
+/* [LGE_S][BSP_Modem] LGSSL to support testmode cmd */
+#ifdef CONFIG_LGE_DM_APP
+	if (diag_mux->mode != DIAG_MEMORY_DEVICE_MODE)
+	{
+#endif /* CONFIG_LGE_DM_APP */
+/* [LGE_E][BSP_Modem] LGSSL to support testmode cmd */
 	if (!atomic_read(&ch->connected) || !ch->enabled ||
 	    !atomic_read(&ch->diag_state))
 		return;
+/* [LGE_S][BSP_Modem] LGSSL to support testmode cmd */
+#ifdef CONFIG_LGE_DM_APP
+	}
+#endif /* CONFIG_LGE_DM_APP */
+/* [LGE_E][BSP_Modem] LGSSL to support testmode cmd */
 
 	req = ch->read_ptr;
 	ch->read_cnt++;

@@ -23,6 +23,9 @@
 #include <linux/msm-bus-board.h>
 #include "mdss_mdp_pp_cache_config.h"
 
+#ifdef CONFIG_LGE_DISPLAY_COMMON
+#include "lge/lge_mdss_display.h"
+#endif
 struct mdp_csc_cfg mdp_csc_8bit_convert[MDSS_MDP_MAX_CSC] = {
 	[MDSS_MDP_CSC_YUV2RGB_601L] = {
 		0,
@@ -5448,7 +5451,7 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 	u32 exp_sum = 0;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	unsigned long flag;
+	unsigned long flag = 0;
 
 	if (mdata->mdp_rev < MDSS_MDP_HW_REV_103) {
 		pr_err("Unsupported mdp rev %d\n", mdata->mdp_rev);

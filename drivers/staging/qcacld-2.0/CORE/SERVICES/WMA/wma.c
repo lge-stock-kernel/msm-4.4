@@ -6447,6 +6447,11 @@ static void wma_config_stats_primary_mac(struct wma_handle *wma,
 
 	pdev = vos_get_context(VOS_MODULE_ID_TXRX, wma->vos_context);
 
+        if (!pdev) {
+            WMA_LOGD(FL("Context data is not allocated for VOS TXRX module"));
+            return;
+        }
+
 	/* Get the peer ID */
 	peer = ol_txrx_find_peer_by_addr(pdev, params->bssid, &peer_id);
 
@@ -15198,6 +15203,7 @@ VOS_STATUS wma_vdev_start(tp_wma_handle wma,
 	tpAniSirGlobal pmac = NULL;
 	struct ath_dfs *dfs;
 	ol_txrx_pdev_handle pdev = NULL;
+    uint32_t cfg_val;
 
 	pmac = (tpAniSirGlobal)
 		vos_get_context(VOS_MODULE_ID_PE, wma->vos_context);
@@ -15373,6 +15379,18 @@ VOS_STATUS wma_vdev_start(tp_wma_handle wma,
 		WMA_LOGI("bcn rate code %02x", cmd->bcn_tx_rate);
 	}
 
+    if (wlan_cfgGetInt(pmac, WNI_CFG_SAP_ENABLE_BEACON_FILTER,
+                       &cfg_val) == eSIR_SUCCESS) {
+        if (!cfg_val) {
+            WMA_LOGD("WNI_CFG_SAP_ENABLE_BEACON_FILTER "
+                                 "is 0, ignore");
+        } else {
+            cmd->flags |= WMI_UNIFIED_VDEV_START_FILTER_BEACON;
+        }
+    } else {
+        WMA_LOGE("Failed to get value of "
+                     "WNI_CFG_SAP_ENABLE_BEACON_FILTER");
+    }
 	/* FIXME: Find out min, max and regulatory power levels */
 	WMI_SET_CHANNEL_REG_POWER(chan, req->max_txpow);
 	WMI_SET_CHANNEL_MAX_TX_POWER(chan, req->max_txpow);
@@ -21401,6 +21419,7 @@ end:
 /*
  * Set TX power limit through vdev param
  */
+#ifdef MAX_TX_POWER_ORIGIN
 static void wma_set_max_tx_power(WMA_HANDLE handle,
 	tMaxTxPowerParams *tx_pwr_params)
 {
@@ -21453,7 +21472,7 @@ end:
 	if (ret)
 		WMA_LOGE("%s: Failed to set vdev param WMI_VDEV_PARAM_TX_PWRLIMIT", __func__);
 }
-
+#endif
 /*
  * Function to update the EDCA parameters to the target
  */
@@ -35012,8 +35031,14 @@ VOS_STATUS wma_mc_process_msg(v_VOID_t *vos_context, vos_msg_t *msg)
 					(tpMaxTxPowerParams)msg->bodyptr);
 			break;
 		case WDA_SET_MAX_TX_POWER_REQ:
+#ifdef MAX_TX_POWER_ORIGIN
 			wma_set_max_tx_power(wma_handle,
 					(tpMaxTxPowerParams)msg->bodyptr);
+#else
+			wma_ProcessTxPowerLimits(wma_handle,
+						(tSirTxPowerLimit *)msg->bodyptr);
+			vos_mem_free(msg->bodyptr);
+#endif
 			break;
 		case WDA_SET_KEEP_ALIVE:
 			wma_set_keepalive_req(wma_handle,

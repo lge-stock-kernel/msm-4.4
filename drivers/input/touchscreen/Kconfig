@@ -11,11 +11,11 @@ menuconfig INPUT_TOUCHSCREEN
 
 if INPUT_TOUCHSCREEN
 
-source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+source "drivers/input/touchscreen/lge/Kconfig"
+#source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 
 config OF_TOUCHSCREEN
 	def_tristate INPUT
-	depends on INPUT
 
 config TOUCHSCREEN_88PM860X
 	tristate "Marvell 88PM860x touchscreen"
@@ -1222,6 +1222,56 @@ config TOUCHSCREEN_ST
 	  Say Y here if you have a STMicroelectronics Touchscreen.
 
 	  If unsure, say N.
+
+config TOUCHSCREEN_ATMEL_T1664
+	tristate "Atmel mXT 1664T2 I2C Touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have Atmel mXT series I2C touchscreen,
+	  such as AT42QT602240/ATMXT224, connected to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called atmel_t1664.
+
+config TOUCHSCREEN_ATMEL_LPWG_DEBUG_REASON
+    tristate "Atmel LPWG Debug Reason enable feature based touchscreens"
+    depends on I2C
+    default n
+    help
+        Say Y here if you have an Atmel Maxtouch based touchscreen and LPWG Debug Reason.
+
+config TOUCHSCREEN_MSG_INFO_PRINT
+	tristate "Touchscreen Message Information Print"
+	default n
+	help
+	  This enables support for printing the log message
+	  which has informative level.
+
+	  Say Y here if you want to enable the driver.
+
+	  If unsure, say N.
+
+config TOUCHSCREEN_ATMEL_STYLUS_PEN
+    tristate "Atmel Stylus pen enable feature based touchscreens"
+    depends on I2C
+    default n
+    help
+        Say Y here if you have an Atmel Maxtouch based touchscreen and stylus pen.
+
+config TOUCHSCREEN_LGE_LPWG
+	bool "LGE Touch LPWG feature"
+	depends on I2C
+	default n
+	help
+	 Say Y here if you use lge LPWG feature
+	 if unsure, say N
+
+config LGE_TOUCH_FW_PATH
+	string "LGE Touch Core Firmware Path"
+	help
+	LGE_TOUCH_FW_PATH is set to path of touch firmware
 
 source "drivers/input/touchscreen/st/Kconfig"
 

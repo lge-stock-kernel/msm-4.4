@@ -1483,7 +1483,11 @@ static ssize_t qpnp_haptics_store_duration(struct device *dev,
 		return count;
 
 	if (val > chip->max_play_time_ms)
+#ifdef CONFIG_MACH_LGE
+		val = chip->max_play_time_ms;
+#else
 		return -EINVAL;
+#endif
 
 	mutex_lock(&chip->param_lock);
 	rc = qpnp_haptics_auto_mode_config(chip, val);

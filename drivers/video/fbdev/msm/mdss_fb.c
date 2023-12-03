@@ -56,6 +56,14 @@
 #include "mdss_smmu.h"
 #include "mdss_mdp.h"
 
+#ifdef CONFIG_LGE_DISPLAY_COMMON
+#include "lge/lge_mdss_display.h"
+#endif
+
+#if defined(CONFIG_LGE_INTERVAL_MONITOR)
+#include "lge/lge_interval_monitor.h"
+#endif
+
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
 #else
@@ -279,6 +287,8 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 	struct msm_fb_data_type *mfd = dev_get_drvdata(led_cdev->dev->parent);
 	int bl_lvl;
 
+	mfd->br_level_val = value;
+
 	if (mfd->boot_notification_led) {
 		led_trigger_event(mfd->boot_notification_led, 0);
 		mfd->boot_notification_led = NULL;
@@ -304,6 +314,18 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 	mfd->bl_level_usr = bl_lvl;
 }
 
+#ifdef CONFIG_LGE_DISPLAY_COMMON
+static enum led_brightness mdss_fb_get_bl_brightness(
+	struct led_classdev *led_cdev)
+{
+	struct msm_fb_data_type *mfd = dev_get_drvdata(led_cdev->dev->parent);
+	enum led_brightness value;
+
+	value = mfd->br_level_val;
+
+	return value;
+}
+#else /* qct original */
 static enum led_brightness mdss_fb_get_bl_brightness(
 	struct led_classdev *led_cdev)
 {
@@ -315,7 +337,7 @@ static enum led_brightness mdss_fb_get_bl_brightness(
 
 	return value;
 }
-
+#endif
 static struct led_classdev backlight_led = {
 	.name           = "lcd-backlight",
 	.brightness     = MDSS_MAX_BL_BRIGHTNESS / 2,
@@ -1295,6 +1317,10 @@ static int mdss_fb_probe(struct platform_device *pdev)
 
 	mfd->pdev = pdev;
 
+#ifdef CONFIG_LGE_DISPLAY_COMMON
+	lge_mdss_fb_init(mfd);
+#endif
+
 	mfd->split_fb_left = mfd->split_fb_right = 0;
 
 	mdss_fb_set_split_mode(mfd, pdata);
@@ -1326,6 +1352,9 @@ static int mdss_fb_probe(struct platform_device *pdev)
 		return rc;
 
 	mdss_fb_create_sysfs(mfd);
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_COMMON)
+	lge_mdss_sysfs_init(mfd);
+#endif
 	mdss_fb_send_panel_event(mfd, MDSS_EVENT_FB_REGISTERED, fbi);
 
 	if (mfd->mdp.init_fnc) {
@@ -1865,7 +1894,9 @@ static int mdss_fb_blank_blank(struct msm_fb_data_type *mfd,
 		return 0;
 
 	cur_power_state = mfd->panel_power_state;
-
+#ifdef CONFIG_LGE_LCD_OFF_DIMMING
+	lge_set_blank_called();
+#endif
 	pr_debug("Transitioning from %d --> %d\n", cur_power_state,
 		req_power_state);
 
@@ -2040,7 +2071,12 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 				blank_mode = FB_BLANK_POWERDOWN;
 		}
 	}
-
+#if defined(CONFIG_LGE_INTERVAL_MONITOR)
+	if (FB_BLANK_UNBLANK == blank_mode)
+		lge_interval_panel_power_notify(1);
+	else
+		lge_interval_panel_power_notify(0);
+#endif
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 		pr_debug("unblank called. cur pwr state=%d\n", cur_power_state);
@@ -4662,6 +4698,7 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 	struct mdp_destination_scaler_data __user *ds_data_user;
 	struct msm_fb_data_type *mfd;
 	struct mdss_overlay_private *mdp5_data = NULL;
+	struct mdss_data_type *mdata;
 
 	ret = copy_from_user(&commit, argp, sizeof(struct mdp_layer_commit));
 	if (ret) {
@@ -4764,6 +4801,12 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 	ds_data_user = commit.commit_v1.dest_scaler;
 	if ((ds_data_user) &&
 		(commit.commit_v1.dest_scaler_cnt)) {
+		mdata = mfd_to_mdata(mfd);
+		if (!mdata || !mdata->scaler_off ||
+				 !mdata->scaler_off->has_dest_scaler) {
+			pr_err("dest scaler not supported\n");
+			goto err;
+		}
 		ret = __mdss_fb_copy_destscaler_data(info, &commit);
 		if (ret) {
 			pr_err("copy dest scaler failed\n");
@@ -5080,6 +5123,35 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 
 	return mdss_fb_do_ioctl(info, cmd, arg, file);
 }
+
+#ifdef CONFIG_LGE_VSYNC_SKIP
+struct fb_info *msm_fb_get_pan_fb(void)
+{
+	static int panel_before = 0;
+	int c = 0;
+	for (c = 0; c < fbi_list_index; ++c) {
+		struct msm_fb_data_type *mfd;
+		mfd = (struct msm_fb_data_type *)fbi_list[c]->par;
+
+		if (mfd->panel.type == MIPI_CMD_PANEL) {
+			if (panel_before != MIPI_CMD_PANEL) {
+				panel_before = MIPI_CMD_PANEL;
+				return NULL;
+			}
+			return fbi_list[c];
+		}
+
+		if (mfd->panel.type == MIPI_VIDEO_PANEL) {
+			if (panel_before != MIPI_VIDEO_PANEL) {
+				panel_before = MIPI_VIDEO_PANEL;
+				return NULL;
+			}
+			return fbi_list[c];
+		}
+	}
+	return NULL;
+}
+#endif
 
 static int mdss_fb_register_extra_panel(struct platform_device *pdev,
 	struct mdss_panel_data *pdata)

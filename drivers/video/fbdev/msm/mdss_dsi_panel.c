@@ -22,6 +22,7 @@
 #include <linux/qpnp/pwm.h>
 #include <linux/err.h>
 #include <linux/string.h>
+#include <soc/qcom/lge/board_lge.h>
 
 #include "mdss_dsi.h"
 #include "mdss_dba_utils.h"
@@ -180,9 +181,13 @@ static void mdss_dsi_panel_apply_settings(struct mdss_dsi_ctrl_pdata *ctrl,
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 }
 
-
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_COMMON)
+void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
+			struct dsi_panel_cmds *pcmds, u32 flags)
+#else
 static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
 			struct dsi_panel_cmds *pcmds, u32 flags)
+#endif
 {
 	struct dcs_cmd_req cmdreq;
 	struct mdss_panel_info *pinfo;
@@ -246,6 +251,11 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 }
 
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_OVERRIDE_MDSS_DSI_PANEL_RESET)
+/*
+ * should be defined in other file.
+ */
+#else
 static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int rc = 0;
@@ -296,6 +306,7 @@ rst_gpio_err:
 disp_en_gpio_err:
 	return rc;
 }
+#endif
 
 int mdss_dsi_bl_gpio_ctrl(struct mdss_panel_data *pdata, int enable)
 {
@@ -372,6 +383,11 @@ ret:
 	return rc;
 }
 
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_OVERRIDE_MDSS_DSI_PANEL_RESET)
+/*
+ * should be defined in other file.
+ */
+#else
 int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
@@ -507,6 +523,7 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 exit:
 	return rc;
 }
+#endif
 
 /**
  * mdss_dsi_roi_merge() -  merge two roi into single roi
@@ -915,6 +932,11 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 	}
 }
 
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_OVERRIDE_MDSS_DSI_PANEL_ON)
+/*
+ * should be defined in other file.
+ */
+#else
 static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
@@ -963,6 +985,7 @@ end:
 	pr_debug("%s:-\n", __func__);
 	return ret;
 }
+#endif
 
 static int mdss_dsi_post_panel_on(struct mdss_panel_data *pdata)
 {
@@ -1003,6 +1026,11 @@ end:
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_OVERRIDE_MDSS_DSI_PANEL_ON)
+/*
+ * should be defined in other file.
+ */
+#else
 static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
@@ -1036,6 +1064,7 @@ end:
 	pr_debug("%s:-\n", __func__);
 	return 0;
 }
+#endif
 
 static int mdss_dsi_panel_low_power_config(struct mdss_panel_data *pdata,
 	int enable)
@@ -1122,9 +1151,13 @@ static void mdss_dsi_parse_trigger(struct device_node *np, char *trigger,
 	}
 }
 
-
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_COMMON)
+int mdss_dsi_parse_dcs_cmds(struct device_node *np,
+		struct dsi_panel_cmds *pcmds, char *cmd_key, char *link_key)
+#else
 static int mdss_dsi_parse_dcs_cmds(struct device_node *np,
 		struct dsi_panel_cmds *pcmds, char *cmd_key, char *link_key)
+#endif
 {
 	const char *data;
 	int blen = 0, len;
@@ -2935,6 +2968,13 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	mdss_dsi_parse_reset_seq(np, pinfo->rst_seq, &(pinfo->rst_seq_len),
 		"qcom,mdss-dsi-reset-sequence");
 
+/* Modified reset sequence liyan 20190520 Begin */
+#ifdef CONFIG_PXLW_IRIS3_BRIDGE_IC
+	mdss_dsi_parse_reset_seq(np, pinfo->iris_rst_seq, &(pinfo->iris_rst_seq_len),
+		"qcom,mdss-dsi-iris-reset-sequence");
+#endif
+/* Modified reset sequence liyan 20190520 End */
+
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->off_cmds,
 		"qcom,mdss-dsi-off-command", "qcom,mdss-dsi-off-command-state");
 
@@ -3009,6 +3049,16 @@ int mdss_dsi_panel_init(struct device_node *node,
 	} else {
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
 		strlcpy(&pinfo->panel_name[0], panel_name, MDSS_MAX_PANEL_LEN);
+#if defined(CONFIG_LGE_DISPLAY_COMMON)
+		if (strncmp(panel_name, "hx8279d wuxga video mode dsi panel", 34) == 0) {
+			pr_info("%s: panel_type is AUO_HX8279D_1200_1920_VIDEO_PANEL\n",
+							__func__);
+			pinfo->panel_type = AUO_HX8279D_1200_1920_VIDEO_PANEL;
+		} else {
+				pr_err("%s: Invalid panel type\n", __func__);
+		}
+		lge_set_panel(pinfo->panel_type);
+#endif
 	}
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {
@@ -3029,6 +3079,11 @@ int mdss_dsi_panel_init(struct device_node *node,
 	ctrl_pdata->panel_data.apply_display_setting =
 			mdss_dsi_panel_apply_display_setting;
 	ctrl_pdata->switch_mode = mdss_dsi_panel_switch_mode;
-
+#if IS_ENABLED(CONFIG_LGE_DISPLAY_COMMON)
+	rc = lge_mdss_dsi_panel_init(node, ctrl_pdata);
+	if (rc) {
+		pr_err("%s: fail to init lge panel features\n", __func__);
+	}
+#endif
 	return 0;
 }

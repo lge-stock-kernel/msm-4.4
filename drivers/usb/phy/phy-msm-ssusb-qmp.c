@@ -75,6 +75,24 @@ struct qmp_reg_val {
 	u32 delay;
 };
 
+#ifdef CONFIG_LGE_USB
+#define QSERDES_TX_TX_EMP_POST1_LVL 0x218
+#define QSERDES_TX_TX_DRV_LVL       0x22C
+#define RX_RX_EQU_ADAPTOR_CNTRL4    0x4E0
+
+static uint32_t override_tx_de_emphasis = 0;
+module_param(override_tx_de_emphasis, uint, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(override_tx_de_emphasis, "Overide TX_PRE_EMPHASIS tuning register");
+
+static uint32_t override_tx_swing = 0;
+module_param(override_tx_swing, uint, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(override_tx_swing, "Override TX_SWING tuning register");
+
+static uint32_t override_rx_equalization = 0;
+module_param(override_rx_equalization, uint, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(override_rx_equalization, "Override rx_equalization tuning register");
+#endif
+
 struct msm_ssphy_qmp {
 	struct usb_phy		phy;
 	void __iomem		*base;
@@ -106,6 +124,12 @@ struct msm_ssphy_qmp {
 	int			init_seq_len;
 	unsigned int		*qmp_phy_reg_offset;
 	int			reg_offset_cnt;
+
+#ifdef CONFIG_LGE_USB
+	uint32_t		tx_de_emphasis;
+	uint32_t		tx_swing;
+	uint32_t		rx_equalization;
+#endif
 };
 
 static const struct of_device_id msm_usb_id_table[] = {
@@ -280,6 +304,57 @@ static int configure_phy_regs(struct usb_phy *uphy,
 			usleep_range(reg->delay, reg->delay + 10);
 		reg++;
 	}
+
+#ifdef CONFIG_LGE_USB
+	if (override_tx_de_emphasis) {
+		dev_dbg(uphy->dev, "%s: Write TX_DE_EMPHASIS from adb as: %d",
+					__func__,
+					override_tx_de_emphasis);
+		writel_relaxed(override_tx_de_emphasis | 0x20,
+				phy->base + QSERDES_TX_TX_EMP_POST1_LVL);
+	} else {
+		if (phy->tx_de_emphasis) {
+				dev_dbg(uphy->dev, "%s: Write TX_DE_EMPHASIS from dtsi as: %d",
+								__func__,
+								phy->tx_de_emphasis);
+				writel_relaxed(phy->tx_de_emphasis | 0x20,
+								phy->base + QSERDES_TX_TX_EMP_POST1_LVL);
+		}
+	}
+
+	if (override_tx_swing) {
+		dev_dbg(uphy->dev, "%s: Write TX_SWING tuning from adb as: %d",
+					__func__,
+					override_tx_swing);
+		writel_relaxed(override_tx_swing | 0x20,
+				phy->base + QSERDES_TX_TX_DRV_LVL);
+	} else {
+		if (phy->tx_swing) {
+				dev_dbg(uphy->dev, "%s: Write TX_SWING from dtsi as: %d",
+								__func__,
+								phy->tx_swing);
+				writel_relaxed(phy->tx_swing | 0x20,
+								phy->base + QSERDES_TX_TX_DRV_LVL);
+		}
+	}
+
+	if (override_rx_equalization) {
+		dev_dbg(uphy->dev, "%s: Write RX_EQ from adb as: %d",
+					__func__,
+					override_rx_equalization);
+		writel_relaxed(override_rx_equalization,
+				phy->base + RX_RX_EQU_ADAPTOR_CNTRL4);
+	} else {
+		if (phy->rx_equalization) {
+				dev_dbg(uphy->dev, "%s: Write RX_EQ from dtsi as: %d",
+								__func__,
+								phy->rx_equalization);
+				writel_relaxed(phy->rx_equalization,
+								phy->base + RX_RX_EQU_ADAPTOR_CNTRL4);
+		}
+	}
+#endif
+
 	return 0;
 }
 
@@ -292,7 +367,7 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	unsigned init_timeout_usec = INIT_MAX_TIME_USEC;
 	const struct qmp_reg_val *reg = NULL;
 
-	dev_dbg(uphy->dev, "Initializing QMP phy\n");
+	dev_err(uphy->dev, "Initializing QMP phy\n");
 
 	if (phy->emulation)
 		return 0;
@@ -332,6 +407,8 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		return ret;
 	}
 
+
+
 	/* perform lane selection */
 	val = -EINVAL;
 	if (phy->phy.flags & PHY_LANE_A)
@@ -343,7 +420,6 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	if (val > 0)
 		writel_relaxed(val,
 			phy->base + phy->phy_reg[USB3_PHY_PCS_MISC_TYPEC_CTRL]);
-
 	writel_relaxed(0x03, phy->base + phy->phy_reg[USB3_PHY_START]);
 	writel_relaxed(0x00, phy->base + phy->phy_reg[USB3_PHY_SW_RESET]);
 
@@ -366,6 +442,20 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 					phy->phy_reg[USB3_PHY_PCS_STATUS]));
 		return -EBUSY;
 	};
+
+#ifdef CONFIG_LGE_USB
+	dev_dbg(uphy->dev, "%s: Read TX_DE_EMPHASIS [0x%x] TX_SWING [0x%x]\n",
+			__func__,
+			(readl_relaxed(phy->base +\
+			QSERDES_TX_TX_EMP_POST1_LVL) & 0x1f),
+			(readl_relaxed(phy->base +\
+			QSERDES_TX_TX_DRV_LVL)) & 0x1f);
+
+	dev_dbg(uphy->dev, "%s: Read RX_EQ [0x%x]\n",
+			__func__,
+			(readl_relaxed(phy->base +\
+			RX_RX_EQU_ADAPTOR_CNTRL4)) & 0xff);
+#endif
 
 	return 0;
 }
@@ -484,14 +574,16 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 		/* Make sure above write completed with PHY */
 		wmb();
 
-		clk_disable_unprepare(phy->cfg_ahb_clk);
-		clk_disable_unprepare(phy->aux_clk);
-		clk_disable_unprepare(phy->pipe_clk);
-		if (phy->ref_clk)
-			clk_disable_unprepare(phy->ref_clk);
-		if (phy->ref_clk_src)
-			clk_disable_unprepare(phy->ref_clk_src);
-		phy->clk_enabled = false;
+		if (phy->clk_enabled) {
+			clk_disable_unprepare(phy->cfg_ahb_clk);
+			clk_disable_unprepare(phy->aux_clk);
+			clk_disable_unprepare(phy->pipe_clk);
+			if (phy->ref_clk)
+				clk_disable_unprepare(phy->ref_clk);
+			if (phy->ref_clk_src)
+				clk_disable_unprepare(phy->ref_clk_src);
+			phy->clk_enabled = false;
+		}
 		phy->in_suspend = true;
 		msm_ssphy_power_enable(phy, 0);
 		dev_dbg(uphy->dev, "QMP PHY is suspend\n");
@@ -548,8 +640,8 @@ static int msm_ssphy_qmp_notify_disconnect(struct usb_phy *uphy,
 	readl_relaxed(phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
 
 	dev_dbg(uphy->dev, "QMP phy disconnect notification\n");
-	dev_dbg(uphy->dev, " cable_connected=%d\n", phy->cable_connected);
 	phy->cable_connected = false;
+	dev_dbg(uphy->dev, " cable_connected=%d\n", phy->cable_connected);
 	return 0;
 }
 
@@ -698,6 +790,23 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 	}
+
+#ifdef CONFIG_LGE_USB
+	ret = of_property_read_u32(dev->of_node, "qcom,tx-de-emphasis",
+						&phy->tx_de_emphasis);
+	if (ret)
+		phy->tx_de_emphasis = 0;
+
+	ret = of_property_read_u32(dev->of_node, "qcom,tx-swing",
+						&phy->tx_swing);
+	if (ret)
+		phy->tx_swing = 0;
+
+	ret = of_property_read_u32(dev->of_node, "qcom,rx-equalization",
+						&phy->rx_equalization);
+	if (ret)
+		phy->rx_equalization = 0;
+#endif
 
 	/* Set default core voltage values */
 	phy->core_voltage_levels[VOLTAGE_LEVEL_NONE] = 0;

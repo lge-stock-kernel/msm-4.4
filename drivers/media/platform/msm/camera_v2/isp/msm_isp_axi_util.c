@@ -18,7 +18,12 @@
 #include "msm_isp48.h"
 
 #define HANDLE_TO_IDX(handle) (handle & 0xFF)
+
+#ifndef CONFIG_MACH_LGE
 #define ISP_SOF_DEBUG_COUNT 0
+#else
+#define ISP_SOF_DEBUG_COUNT 5
+#endif
 
 static void msm_isp_reload_ping_pong_offset(
 		struct msm_vfe_axi_stream *stream_info);
@@ -1008,6 +1013,15 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 	struct msm_vfe_sof_info *sof_info = NULL, *self_sof = NULL;
 	enum msm_vfe_dual_hw_ms_type ms_type;
 	unsigned long flags;
+
+#ifdef CONFIG_MACH_LGE
+/* LGE_CHANGE_S, STATIC_ANALYSYS_DEV */
+	if (frame_src >= VFE_SRC_MAX) {
+		pr_err("%s: frame_src value is error = %d\n", __func__,	frame_src);
+		return;
+	}
+/* LGE_CHANGE_E, STATIC_ANALYSYS_DEV */
+#endif
 
 	memset(&event_data, 0, sizeof(event_data));
 
@@ -3503,12 +3517,14 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	pingpong_status = vfe_dev->hw_info->
 		vfe_ops.axi_ops.get_pingpong_status(vfe_dev);
 
+#if 0 //LGE_CHANGE, 5-stream preview stop, 2019-04-23, grant.kang@lge.com
 	/* As MCT is still processing it, need to drop the additional requests*/
 	if (vfe_dev->isp_page->drop_reconfig) {
 		pr_err("%s: MCT has not yet delayed %d drop request %d\n",
 			__func__, vfe_dev->isp_page->drop_reconfig, frame_id);
 		goto error;
 	}
+#endif //LGE_CHANGE, 5-stream preview stop, 2019-04-23, grant.kang@lge.com
 
 	/*
 	 * If PIX stream is active then RDI path uses SOF frame ID of PIX
@@ -3523,6 +3539,8 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 		vfe_dev->axi_data.src_info[frame_src].accept_frame == false) {
 		pr_debug("%s:%d invalid time to request frame %d\n",
 			__func__, __LINE__, frame_id);
+/* LGE_CHANGE_S , 5-stream preview stop, 2019-04-23, grant.kang@lge.com */
+#if 0
 		vfe_dev->isp_page->drop_reconfig = 1;
 	} else if ((vfe_dev->axi_data.src_info[frame_src].active) &&
 			(frame_id ==
@@ -3535,6 +3553,12 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
 			vfe_dev->axi_data.src_info[VFE_PIX_0].active);
 	} else if ((vfe_dev->axi_data.src_info[frame_src].active && (frame_id !=
+#else
+		goto error;
+	}
+	if ((vfe_dev->axi_data.src_info[frame_src].active && (frame_id !=
+#endif
+/* LGE_CHANGE_E , 5-stream preview stop, 2019-04-23, grant.kang@lge.com */
 		vfe_dev->axi_data.src_info[frame_src].frame_id + vfe_dev->
 		axi_data.src_info[frame_src].sof_counter_step)) ||
 		((!vfe_dev->axi_data.src_info[frame_src].active))) {
@@ -4166,6 +4190,7 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 	struct timeval *time_stamp;
 	uint32_t frame_id, buf_index = -1;
 	int vfe_idx;
+	int sw_ping_pong_bit_temp = -1;  /* LGE_CHANGE, 2019-05-10, Fixes "Cancel missing frame" issue , CST */
 
 	if (!ts) {
 		pr_err("%s: Error! Invalid argument\n", __func__);
@@ -4245,7 +4270,8 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 
 	if (stream_info->controllable_output &&
 		(done_buf != NULL) &&
-		(stream_info->sw_ping_pong_bit == -1) &&
+//		(stream_info->sw_ping_pong_bit == -1) &&  /* LGE_CHANGE, 2019-05-09, Fixes "Cancel missing frame" issue , CST */
+		((stream_info->sw_ping_pong_bit == -1) || stream_info->buf[!pingpong_bit] != done_buf)&&
 		(done_buf->is_drop_reconfig == 1)) {
 		/*When wm reloaded and corresponding reg_update fail
 		* then buffer is reconfig as PING buffer. so, avoid
@@ -4253,6 +4279,7 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 		* next AXI_DONE or buf_done can be successful
 		*/
 		stream_info->buf[pingpong_bit] = done_buf;
+		sw_ping_pong_bit_temp = stream_info->sw_ping_pong_bit; /* LGE_CHANGE, 2019-05-10, Fixes "Cancel missing frame" issue , CST */
 	}
 
 	if (stream_info->stream_type == CONTINUOUS_STREAM ||
@@ -4298,6 +4325,15 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 		return;
 	}
 
+/* LGE_CHANGE_S, 2019-05-10, Fixes "Cancel missing frame" issue , CST */
+	if (stream_info->controllable_output &&
+			(done_buf != NULL) &&
+			(stream_info->buf[pingpong_bit] == done_buf && stream_info->buf[pingpong_bit] !=NULL )&&
+			(done_buf->is_drop_reconfig == 1) && sw_ping_pong_bit_temp != -1) {
+			stream_info->sw_ping_pong_bit ^= 1;
+			pr_err("%s:%d change sw_ping_pong_bit to %d for Cancel missing frame issue pingpong_bit =%d",__func__, __LINE__,stream_info->sw_ping_pong_bit,pingpong_bit);
+		}
+/* LGE_CHANGE_E, 2019-05-10, Fixes "Cancel missing frame" issue , CST */
 
 	if ((done_buf->frame_id != frame_id) &&
 		vfe_dev->axi_data.enable_frameid_recovery) {

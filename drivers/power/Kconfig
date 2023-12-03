@@ -462,6 +462,15 @@ config BATTERY_BQ28400
 	  The device monitors the battery level (Relative-State-Of-Charge).
 	  The device is SBS compliant, providing battery info over I2C.
 
+config BATTERY_BCL
+	tristate "Battery Current Limit driver"
+	depends on THERMAL_MONITOR
+	help
+	  Say Y here to enable support for battery current limit
+	  device. The BCL driver will poll BMS if
+	  thermal daemon enables BCL.
+	  It will notify thermal daemon if IBat crosses Imax threshold.
+
 config CHARGER_TPS65090
 	tristate "TPS65090 battery charger driver"
 	depends on MFD_TPS65090
@@ -521,6 +530,36 @@ config AXP20X_POWER
 	  This driver provides support for the power supply features of
 	  AXP20x PMIC.
 
+config MSM_BCL_CTL
+	bool "BCL Framework driver"
+	help
+	  Say Y here to enable this BCL Framework driver. This driver provides
+	  interface, which can be used by the BCL h/w drivers to implement the
+	  basic functionalities. This framework abstracts the underlying
+	  hardware for the top level modules.
+
+config MSM_BCL_PERIPHERAL_CTL
+	bool "BCL driver to control the PMIC BCL peripheral"
+	depends on SPMI || MSM_SPMI
+	depends on MSM_BCL_CTL
+	help
+	  Say Y here to enable this BCL PMIC peripheral driver. This driver
+	  provides routines to configure and monitor the BCL
+	  PMIC peripheral.
+config LGE_PM
+	tristate "MSM8996 LGE POWER Feature"
+	depends on SPMI || MSM_SPMI
+	help
+	  Say Y here to enable support for pm8994/pmi8994 chip lge feature.
+	  Power Management, Battery charging, Battery Monitoring System
+	  with battery FET and fuel gauge.
+
+config LGE_PM_MIRACAST_MITIGATION
+	bool "LGE_PM_MIRACAST_MITIGATION"
+	default n
+	depends on LGE_PM
+	help
+	  Support charging mitigation for miracast
 source "drivers/power/reset/Kconfig"
 source "drivers/power/supply/Kconfig"
 

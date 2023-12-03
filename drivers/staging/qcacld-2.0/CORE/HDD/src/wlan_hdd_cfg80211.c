@@ -23122,6 +23122,12 @@ int __wlan_hdd_cfg80211_scan( struct wiphy *wiphy,
                 scanRequest.skipDfsChnlInP2pSearch = 0;
              }
 
+/* LGE_PATCH_S, 20190529, cheolsook.lee@lge.com, miracast connection to Passive Channel */
+             if ((!hdd_connIsConnected(WLAN_HDD_GET_STATION_CTX_PTR(pAdapter))) && (WLAN_HDD_P2P_CLIENT == pAdapter->device_mode))
+             {
+                scanRequest.skipDfsChnlInP2pSearch = 0;
+             }
+/* LGE_PATCH_E, 20190529, cheolsook.lee@lge.com, miracast connection to Passive Channel */
           }
        }
     }
@@ -26027,11 +26033,13 @@ static int __wlan_hdd_cfg80211_get_txpower(struct wiphy *wiphy,
     }
     sta_ctx = WLAN_HDD_GET_STATION_CTX_PTR(pAdapter);
 
-    if (sta_ctx->conn_info.connState != eConnectionState_Associated) {
-        hddLog(LOG1, FL("Not associated"));
-        /*To keep GUI happy */
-        *dbm = 0;
-        return 0;
+    if (NULL != sta_ctx) {
+        if (sta_ctx->conn_info.connState != eConnectionState_Associated) {
+            hddLog(LOG1, FL("Not associated"));
+            /*To keep GUI happy */
+            *dbm = 0;
+            return 0;
+        }
     }
 
     MTRACE(vos_trace(VOS_MODULE_ID_HDD, TRACE_CODE_HDD_CFG80211_GET_TXPOWER,

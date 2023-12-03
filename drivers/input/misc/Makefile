@@ -81,3 +81,5 @@ obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-$(CONFIG_INPUT_IDEAPAD_SLIDEBAR)	+= ideapad_slidebar.o
 obj-$(CONFIG_INPUT_PIXART_OTS_PAT9125_SWITCH)	+= ots_pat9125/
 obj-$(CONFIG_INPUT_STMVL53L0)                 += vl53L0/
+obj-$(CONFIG_SAR_ATMF04_12QFN) += atmf04_12qfn.o
+obj-$(CONFIG_SAR_ALMF04_C2_C3_12QFN)	+= almf04_c2_c3_12qfn.o

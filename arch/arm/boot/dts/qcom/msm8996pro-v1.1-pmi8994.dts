@@ -22,3 +22,25 @@
 	qcom,msm-id = <305 0x10001>;
 	qcom,pmic-name = "PMI8994";
 };
+
+&gfx_cpr {
+	vdd-supply = <&pm8004_s2>;
+};
+
+&mdss_dsi0 {
+	/delete-property/qcom,null-insertion-enabled;
+};
+
+&pil_modem {
+       /delete-property/ qcom,mx-spike-wa;
+};
+
+&pmi8994_charger {
+        /delete-property/ qcom,charge-unknown-battery;
+        /delete-property/ qcom,chg-inhibit-fg;
+};
+
+&pcie1 {
+	   /delete-property/ perst-gpio;
+	   /delete-property/ wake-gpio;
+};

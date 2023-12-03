@@ -67,12 +67,15 @@ ifeq ($(TARGET_KERNEL),$(current_dir))
     KERNEL_OUT := $(TARGET_OUT_INTERMEDIATES)/kernel/$(TARGET_KERNEL)
     KERNEL_SYMLINK := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ
     KERNEL_USR := $(KERNEL_SYMLINK)/usr
+    KERNEL_HEADERS_TIMESTAMP := $(KERNEL_SYMLINK)/usr/build-timestamp
 else
     # Legacy style, kernel source directly under kernel
     KERNEL_LEGACY_DIR := true
     BUILD_ROOT_LOC := ../
     TARGET_KERNEL_SOURCE := kernel
     KERNEL_OUT := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ
+    KERNEL_USR :=
+    KERNEL_HEADERS_TIMESTAMP := $(KERNEL_OUT)/usr/build-timestamp
 endif
 
 KERNEL_CONFIG := $(KERNEL_OUT)/.config
@@ -119,6 +122,10 @@ mpath=`dirname $$mdpath`; rm -rf $$mpath;\
 fi
 endef
 
+ifeq ($(INIT_BOOTCHART2), true)
+KERNEL_CONFIG_OVERRIDE_FILES := bootchart2_defconfig
+endif
+
 ifneq ($(KERNEL_LEGACY_DIR),true)
 $(KERNEL_USR): $(KERNEL_HEADERS_INSTALL)
 	rm -rf $(KERNEL_SYMLINK)
@@ -136,6 +143,16 @@ $(KERNEL_CONFIG): $(KERNEL_OUT)
 			echo "Overriding kernel config with '$(KERNEL_CONFIG_OVERRIDE)'"; \
 			echo $(KERNEL_CONFIG_OVERRIDE) >> $(KERNEL_OUT)/.config; \
 			$(MAKE) -C $(TARGET_KERNEL_SOURCE) O=$(BUILD_ROOT_LOC)$(KERNEL_OUT) $(KERNEL_MAKE_ENV) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) oldconfig; fi
+	$(hide) if [ ! -z "$(KERNEL_CONFIG_OVERRIDE_FILES)" ]; then \
+			echo "BOOTCHART2 : Overriding kernel config with '$(KERNEL_CONFIG_OVERRIDE_FILES)'"; \
+			for override_file in $(KERNEL_CONFIG_OVERRIDE_FILES); \
+				do cat $(TARGET_KERNEL_SOURCE)/arch/$(KERNEL_ARCH)/configs/$$override_file >> $(KERNEL_OUT)/.config; done; \
+			$(MAKE) -C $(TARGET_KERNEL_SOURCE) O=$(BUILD_ROOT_LOC)$(KERNEL_OUT) $(KERNEL_MAKE_ENV) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) oldconfig; fi
+
+ifeq ($(PRODUCT_SUPPORT_EXFAT), y)
+TUXERA_MODULES_OUT := $(TARGET_OUT_VENDOR)/lib/modules
+sinclude $(ANDROID_BUILD_TOP)/device/lge/common/tuxera.mk
+endif
 
 $(TARGET_PREBUILT_INT_KERNEL): $(KERNEL_OUT) $(KERNEL_HEADERS_INSTALL)
 	$(hide) echo "Building kernel..."
@@ -143,8 +160,30 @@ $(TARGET_PREBUILT_INT_KERNEL): $(KERNEL_OUT) $(KERNEL_HEADERS_INSTALL)
 	$(MAKE) -C $(TARGET_KERNEL_SOURCE) O=$(BUILD_ROOT_LOC)$(KERNEL_OUT) $(KERNEL_MAKE_ENV) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) $(KERNEL_CFLAGS)
 	$(MAKE) -C $(TARGET_KERNEL_SOURCE) O=$(BUILD_ROOT_LOC)$(KERNEL_OUT) $(KERNEL_MAKE_ENV) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) $(KERNEL_CFLAGS) modules
 	$(MAKE) -C $(TARGET_KERNEL_SOURCE) O=$(BUILD_ROOT_LOC)$(KERNEL_OUT) INSTALL_MOD_PATH=$(BUILD_ROOT_LOC)../$(KERNEL_MODULES_INSTALL) INSTALL_MOD_STRIP=1 $(KERNEL_MAKE_ENV) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) modules_install
+ifeq ($(PRODUCT_SUPPORT_EXFAT), y)
+	@mkdir -p $(ANDROID_BUILD_TOP)/$(TUXERA_MODULES_OUT)
+	@mkdir -p $(TARGET_OUT_EXECUTABLES)
+	@cp -f $(ANDROID_BUILD_TOP)/kernel/msm-4.4/tuxera_update.sh $(ANDROID_BUILD_TOP)
+	@sh tuxera_update.sh --target target/lg.d/msm8996-arm64 --use-cache --latest --max-cache-entries 2 --source-dir $(ANDROID_BUILD_TOP)/kernel/msm-4.4 --output-dir $(ANDROID_BUILD_TOP)/$(KERNEL_OUT) $(SUPPORT_EXFAT_TUXERA)
+	@tar -xzf tuxera-*.tgz
+	@cp $(ANDROID_BUILD_TOP)/tuxera-*/exfat/kernel-module/texfat.ko $(ANDROID_BUILD_TOP)/$(TUXERA_MODULES_OUT)
+	@cp $(ANDROID_BUILD_TOP)/tuxera-*/exfat/tools/* $(TARGET_OUT_EXECUTABLES)
+	@$(ANDROID_BUILD_TOP)/$(KERNEL_OUT)/scripts/sign-file sha1 $(ANDROID_BUILD_TOP)/$(KERNEL_OUT)/certs/signing_key.pem $(ANDROID_BUILD_TOP)/$(KERNEL_OUT)/certs/signing_key.x509 $(ANDROID_BUILD_TOP)/$(TUXERA_MODULES_OUT)/texfat.ko
+ifeq ($(PRODUCT_SUPPORT_NTFS), y)
+	@cp $(ANDROID_BUILD_TOP)/tuxera-*/ntfs/kernel-module/tntfs.ko $(ANDROID_BUILD_TOP)/$(TUXERA_MODULES_OUT)
+	@cp $(ANDROID_BUILD_TOP)/tuxera-*/ntfs/tools/* $(TARGET_OUT_EXECUTABLES)
+	@$(ANDROID_BUILD_TOP)/$(KERNEL_OUT)/scripts/sign-file sha1 $(ANDROID_BUILD_TOP)/$(KERNEL_OUT)/certs/signing_key.pem $(ANDROID_BUILD_TOP)/$(KERNEL_OUT)/certs/signing_key.x509 $(ANDROID_BUILD_TOP)/$(TUXERA_MODULES_OUT)/tntfs.ko
+endif
+	@rm -f kheaders*.tar.bz2
+	@rm -f tuxera-*.tgz
+	@rm -rf tuxera-*
+	@rm -f tuxera_update.sh
+endif
+
 	$(mv-modules)
 	$(clean-module-folder)
+
+$(KERNEL_HEADERS_TIMESTAMP): $(KERNEL_HEADERS_INSTALL) $(KERNEL_USR)
 
 $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT)
 	$(hide) if [ ! -z "$(KERNEL_HEADER_DEFCONFIG)" ]; then \
@@ -159,6 +198,12 @@ $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT)
 			echo "Overriding kernel config with '$(KERNEL_CONFIG_OVERRIDE)'"; \
 			echo $(KERNEL_CONFIG_OVERRIDE) >> $(KERNEL_OUT)/.config; \
 			$(MAKE) -C $(TARGET_KERNEL_SOURCE) O=$(BUILD_ROOT_LOC)$(KERNEL_OUT) $(KERNEL_MAKE_ENV) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) oldconfig; fi
+	$(hide) if [ ! -z "$(KERNEL_CONFIG_OVERRIDE_FILES)" ]; then \
+			echo "BOOTCHART2 : Overriding kernel config with '$(KERNEL_CONFIG_OVERRIDE_FILES)'"; \
+			for override_file in $(KERNEL_CONFIG_OVERRIDE_FILES); \
+				do cat $(TARGET_KERNEL_SOURCE)/arch/$(KERNEL_ARCH)/configs/$$override_file >> $(KERNEL_OUT)/.config; done; \
+			$(MAKE) -C $(TARGET_KERNEL_SOURCE) O=$(BUILD_ROOT_LOC)$(KERNEL_OUT) $(KERNEL_MAKE_ENV) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) oldconfig; fi
+	$(hide) touch $@/build-timestamp
 
 kerneltags: $(KERNEL_OUT) $(KERNEL_CONFIG)
 	$(MAKE) -C $(TARGET_KERNEL_SOURCE) O=$(BUILD_ROOT_LOC)$(KERNEL_OUT) $(KERNEL_MAKE_ENV) ARCH=$(KERNEL_ARCH) CROSS_COMPILE=$(KERNEL_CROSS_COMPILE) tags

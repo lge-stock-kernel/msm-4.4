@@ -6466,9 +6466,15 @@ eHalStatus csrScanCopyRequest(tpAniSirGlobal pMac, tCsrScanRequest *pDstReq, tCs
                                ((eCSR_SCAN_P2P_DISCOVERY == pSrcReq->requestType) &&
                                 CSR_IS_SOCIAL_CHANNEL(pSrcReq->ChannelInfo.ChannelList[index]))))
                             {
-                                if( ((pSrcReq->skipDfsChnlInP2pSearch ||
+                                if( ((pSrcReq->skipDfsChnlInP2pSearch || pMac->sme.miracast_value ||
                                     skip_dfs_chnl) &&
+#if 1 /* WIFI-2895, 20180807, added by cheolsook.lee@lge.com */
+                                    (NV_CHANNEL_DFS == vos_nv_getChannelEnabledState(
+                                             pSrcReq->ChannelInfo.ChannelList[index])) &&
+                                            (pSrcReq->ChannelInfo.numOfChannels > 1))
+#else  /* original */
                                     (NV_CHANNEL_DFS == vos_nv_getChannelEnabledState(pSrcReq->ChannelInfo.ChannelList[index])) )
+#endif
 #ifdef FEATURE_WLAN_LFR
                                      /*
                                       * If LFR is requesting a contiguous scan
@@ -6486,7 +6492,7 @@ eHalStatus csrScanCopyRequest(tpAniSirGlobal pMac, tCsrScanRequest *pDstReq, tCs
                                   )
                                 {
 #ifdef FEATURE_WLAN_LFR
-                                    smsLog(pMac, LOG2,
+                                    smsLog(pMac, LOG1,
                                           FL(" reqType= %s (%d), numOfChannels=%d,"
                                            " ignoring DFS channel %d"),
                                           sme_requestTypetoString(pSrcReq->requestType),

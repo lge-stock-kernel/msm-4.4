@@ -206,7 +206,7 @@ static struct work_struct bcl_hotplug_work;
 static DEFINE_MUTEX(bcl_hotplug_mutex);
 static DEFINE_MUTEX(bcl_cpufreq_mutex);
 static bool bcl_hotplug_enabled;
-static uint32_t battery_soc_val = 100;
+//static uint32_t battery_soc_val = 100;
 static uint32_t soc_low_threshold;
 static const char bcl_psy_name[] = "bcl";
 
@@ -290,6 +290,7 @@ static void soc_mitigate(struct work_struct *work)
 
 static int get_and_evaluate_battery_soc(void)
 {
+#if 0 //Todo
 	static struct power_supply *batt_psy;
 	union power_supply_propval ret = {0,};
 	int battery_percentage;
@@ -315,6 +316,7 @@ static int get_and_evaluate_battery_soc(void)
 			: "clear SoC mitigation");
 		schedule_work(&gbcl->soc_mitig_work);
 	}
+#endif
 	return NOTIFY_OK;
 }
 

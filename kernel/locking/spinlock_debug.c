@@ -110,38 +110,14 @@ static inline void debug_spin_unlock(raw_spinlock_t *lock)
 	lock->owner_cpu = -1;
 }
 
-static void __spin_lock_debug(raw_spinlock_t *lock)
-{
-	u64 i;
-	u64 loops = loops_per_jiffy * HZ;
-
-	for (i = 0; i < loops; i++) {
-		if (arch_spin_trylock(&lock->raw_lock))
-			return;
-		__delay(1);
-	}
-	/* lockup suspected: */
-	spin_bug(lock, "lockup suspected");
-#ifdef CONFIG_SMP
-	trigger_all_cpu_backtrace();
-#endif
-
-	/*
-	 * The trylock above was causing a livelock.  Give the lower level arch
-	 * specific lock code a chance to acquire the lock. We have already
-	 * printed a warning/backtrace at this point. The non-debug arch
-	 * specific code might actually succeed in acquiring the lock.  If it is
-	 * not successful, the end-result is the same - there is no forward
-	 * progress.
-	 */
-	arch_spin_lock(&lock->raw_lock);
-}
-
+/*
+ * We are now relying on the NMI watchdog to detect lockup instead of doing
+ * the detection here with an unfair lock which can cause problem of its own.
+ */
 void do_raw_spin_lock(raw_spinlock_t *lock)
 {
 	debug_spin_lock_before(lock);
-	if (unlikely(!arch_spin_trylock(&lock->raw_lock)))
-		__spin_lock_debug(lock);
+	arch_spin_lock(&lock->raw_lock);
 	debug_spin_lock_after(lock);
 }
 

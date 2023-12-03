@@ -22,3 +22,21 @@
 	qcom,msm-id = <246 0x30001>;
 	qcom,pmic-name = "PMI8996";
 };
+
+&mdss_dsi0 {
+	/delete-property/qcom,null-insertion-enabled;
+};
+
+&pil_modem {
+       /delete-property/ qcom,mx-spike-wa;
+};
+
+&pmi8994_charger {
+        /delete-property/ qcom,charge-unknown-battery;
+        /delete-property/ qcom,chg-inhibit-fg;
+};
+
+&pcie1 {
+	   /delete-property/ perst-gpio;
+	   /delete-property/ wake-gpio;
+};

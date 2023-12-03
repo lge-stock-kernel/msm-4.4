@@ -227,6 +227,10 @@ static struct qpnp_vadc_rscale_fn adc_vadc_rscale_fn[] = {
 
 static int32_t qpnp_vadc_calib_device(struct qpnp_vadc_chip *vadc);
 
+#ifdef CONFIG_LGE_USB
+extern void handle_sbu_switch(bool enable);
+#endif
+
 static int32_t qpnp_vadc_read_reg(struct qpnp_vadc_chip *vadc, int16_t reg,
 						u8 *data, int len)
 {
@@ -1896,7 +1900,12 @@ int32_t qpnp_vadc_conv_seq_request(struct qpnp_vadc_chip *vadc,
 		return -EPROBE_DEFER;
 
 	mutex_lock(&vadc->adc->adc_lock);
-
+#ifdef CONFIG_LGE_USB
+    if(channel == LR_MUX10_USB_ID_LV) {
+            pr_debug("handle_sbu_switch(true)\n");
+            handle_sbu_switch(true);
+    }
+#endif
 	if (vadc->state_copy->vadc_meas_int_enable)
 		qpnp_vadc_manage_meas_int_requests(vadc);
 
@@ -2120,6 +2129,13 @@ recalibrate:
 fail_unlock:
 	if (vadc->state_copy->vadc_meas_int_enable)
 		qpnp_vadc_manage_meas_int_requests(vadc);
+
+#ifdef CONFIG_LGE_USB
+    if(channel == LR_MUX10_USB_ID_LV) { //channel : 0x39 (57)
+            pr_debug("handle_sbu_switch(false)\n");
+            handle_sbu_switch(false);
+    }
+#endif
 
 	mutex_unlock(&vadc->adc->adc_lock);
 

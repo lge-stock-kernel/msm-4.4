@@ -1866,8 +1866,10 @@ limDetectChangeInApCapabilities(tpAniSirGlobal pMac,
              SIR_MAC_GET_ESS(psessionEntry->limCurrentBssCaps) ) ||
           ( SIR_MAC_GET_PRIVACY(apNewCaps.capabilityInfo) !=
             SIR_MAC_GET_PRIVACY(psessionEntry->limCurrentBssCaps) ) ||
+/* LGE_UPDATE, WIFI-5493, P2P Connection to MTK (case#03739793 CR2353787)
           ( SIR_MAC_GET_SHORT_PREAMBLE(apNewCaps.capabilityInfo) !=
             SIR_MAC_GET_SHORT_PREAMBLE(psessionEntry->limCurrentBssCaps) ) ||
+*/
           ( SIR_MAC_GET_QOS(apNewCaps.capabilityInfo) !=
             SIR_MAC_GET_QOS(psessionEntry->limCurrentBssCaps) ) ||
           ( (newChannel !=  psessionEntry->currentOperChannel) &&

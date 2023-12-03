@@ -2354,8 +2354,9 @@ limSendSmeSetContextRsp(tpAniSirGlobal pMac,
 #ifdef FEATURE_WLAN_DIAG_SUPPORT_LIM //FEATURE_WLAN_DIAG_SUPPORT
     limDiagEventReport(pMac, WLAN_PE_DIAG_SETCONTEXT_RSP_EVENT, psessionEntry, (tANI_U16)resultCode, 0);
 #endif //FEATURE_WLAN_DIAG_SUPPORT
-
-    limSysProcessMmhMsgApi(pMac, &mmhMsg, ePROT);
+    //limSysProcessMmhMsgApi(pMac, &mmhMsg, ePROT);
+  limLog(pMac, LOGE, FL("call sme_ProcessMsg"));
+  sme_ProcessMsg(pMac, (vos_msg_t *)&mmhMsg);
 } /*** end limSendSmeSetContextRsp() ***/
 
 /**

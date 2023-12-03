@@ -579,6 +579,14 @@ config MEMORY_STATE_TIME
 	help
 	  Memory time statistics exported to /sys/kernel/memory_state_time
 
+
+config RT_REGMAP
+	bool "Richtek Regmap"
+	select DEBUG_FS
+	default n
+	help
+	  Say Y to enable Richtek Register Map
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

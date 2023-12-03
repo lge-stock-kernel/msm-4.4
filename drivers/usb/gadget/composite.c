@@ -23,6 +23,11 @@
 #include <asm/unaligned.h>
 
 #include "u_os_desc.h"
+
+#ifdef CONFIG_LGE_USB_GADGET
+#include <linux/power_supply.h>
+#endif
+
 #define SSUSB_GADGET_VBUS_DRAW 900 /* in mA */
 #define SSUSB_GADGET_VBUS_DRAW_UNITS 8
 #define HSUSB_GADGET_VBUS_DRAW_UNITS 2
@@ -40,6 +45,13 @@ static bool disable_l1_for_hs = true;
 module_param(disable_l1_for_hs, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(disable_l1_for_hs,
 	"Disable support for L1 LPM for HS devices");
+
+#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
+static bool disable_multi_config;
+module_param(disable_multi_config, bool, 0644);
+MODULE_PARM_DESC(disable_multi_config,
+	"Disable support for Multiple Configuration");
+#endif
 
 /**
  * struct usb_os_string - represents OS String to be reported by a gadget
@@ -511,6 +523,10 @@ static int config_buf(struct usb_configuration *config,
 	int				len;
 	struct usb_function		*f;
 	int				status;
+#ifdef CONFIG_LGE_USB_GADGET
+	struct power_supply			*usb_psy;
+	union power_supply_propval	pval = {0};
+#endif
 
 	len = USB_COMP_EP0_BUFSIZ - USB_DT_CONFIG_SIZE;
 	/* write the config descriptor */
@@ -523,11 +539,27 @@ static int config_buf(struct usb_configuration *config,
 	c->iConfiguration = config->iConfiguration;
 	c->bmAttributes = USB_CONFIG_ATT_ONE | config->bmAttributes;
 	c->bMaxPower = encode_bMaxPower(speed, config);
+#ifdef CONFIG_LGE_USB_GADGET
+	usb_psy = power_supply_get_by_name("usb");
+	if (!usb_psy) {
+		WARN(1, "Could not get usb power_supply\n");
+	} else {
+		power_supply_get_property(usb_psy, POWER_SUPPLY_PROP_PD_ACTIVE,
+						&pval);
+		if (pval.intval == 1 /* POWER_SUPPLY_TYPE_USB_PD */) {
+				c->bmAttributes |= USB_CONFIG_ATT_SELFPOWER;
+				c->bMaxPower = 0;
+				pr_info("hongz: USB_PD detected! Attributes = 0x%x bMaxPower = 0x%x\n",
+							c->bmAttributes,
+							c->bMaxPower);
+		}
+	}
+#else
 	if (config->cdev->gadget->is_selfpowered) {
 		c->bmAttributes |= USB_CONFIG_ATT_SELFPOWER;
 		c->bMaxPower = 0;
 	}
-
+#endif
 	/* There may be e.g. OTG descriptors */
 	if (config->descriptors) {
 		status = usb_descriptor_fillbuf(next, len,
@@ -541,6 +573,11 @@ static int config_buf(struct usb_configuration *config,
 	/* add each function's descriptors */
 	list_for_each_entry(f, &config->functions, list) {
 		struct usb_descriptor_header **descriptors;
+
+#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
+		if (config->cdev->is_mac_os && f->set_mac_os)
+			f->set_mac_os(f);
+#endif
 
 		switch (speed) {
 		case USB_SPEED_SUPER:
@@ -829,6 +866,11 @@ static int set_config(struct usb_composite_dev *cdev,
 
 		if (!f)
 			break;
+
+#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
+		if (f->set_config)
+			f->set_config(f, number);
+#endif
 
 		/*
 		 * Record which endpoints are used by the function. This is used
@@ -1667,6 +1709,14 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				}
 			}
 
+#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
+			if (w_length < (u16) sizeof cdev->desc)
+				cdev->disable_multi_config = true;
+
+			if (disable_multi_config || cdev->disable_multi_config)
+				cdev->desc.bNumConfigurations = 1;
+#endif
+
 			value = min(w_length, (u16) sizeof cdev->desc);
 			memcpy(req->buf, &cdev->desc, value);
 			break;
@@ -1693,6 +1743,11 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				value = min(w_length, (u16) value);
 			break;
 		case USB_DT_STRING:
+#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
+			DBG(cdev, "USB_DT_STRING w_length: %02X\n", w_length);
+			if (w_length == 0x02) /* MAC OS TYPE */
+				cdev->is_mac_os = true;
+#endif
 			spin_lock(&cdev->lock);
 			value = get_string(cdev, req->buf,
 					w_index, w_value & 0xff);
@@ -2090,6 +2145,10 @@ void composite_disconnect(struct usb_gadget *gadget)
 		INFO(cdev, "delayed status mismatch..resetting\n");
 		cdev->delayed_status = 0;
 	}
+#ifdef CONFIG_LGE_USB_GADGET_MULTI_CONFIG
+	cdev->is_mac_os = false;
+	cdev->disable_multi_config = false;
+#endif
 	spin_unlock_irqrestore(&cdev->lock, flags);
 }
 

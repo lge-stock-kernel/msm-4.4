@@ -446,6 +446,10 @@ int q6core_get_service_version(uint32_t service_id,
 
 	ret = q6core_get_fwk_version_size(service_id);
 	if (ret < 0) {
+#ifdef CONFIG_MACH_LGE
+		if (ret == -EOPNOTSUPP)
+			return ret;
+#endif
 		pr_err("%s: Failed to get service size for service id %d with error %d\n",
 		       __func__, service_id, ret);
 		return ret;
