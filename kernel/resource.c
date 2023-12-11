@@ -111,6 +111,7 @@ static int r_show(struct seq_file *m, void *v)
 	for (depth = 0, p = r; depth < MAX_IORES_LEVEL; depth++, p = p->parent)
 		if (p->parent == root)
 			break;
+
 	seq_printf(m, "%*s%0*llx-%0*llx : %s\n",
 			depth * 2, "",
 			width, (unsigned long long) r->start,

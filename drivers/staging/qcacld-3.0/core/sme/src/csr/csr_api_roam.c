@@ -20903,13 +20903,13 @@ void csr_process_nss_update_req(tpAniSirGlobal mac, tSmeCmd *command)
 
 	if (!command) {
 		sme_err("nss update param is NULL");
-		return;
+		goto fail;    // LGE_PATCH : kernel panic due to sme cmd timeout
 	}
 
 	if (!CSR_IS_SESSION_VALID(mac, command->sessionId)) {
 		sme_err("Invalid session id %d",
 			command->sessionId);
-		return;
+		goto fail;    // LGE_PATCH : kernel panic due to sme cmd timeout
 	}
 	session = CSR_GET_SESSION(mac, command->sessionId);
 

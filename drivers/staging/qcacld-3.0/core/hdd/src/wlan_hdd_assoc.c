@@ -1662,7 +1662,8 @@ static QDF_STATUS hdd_dis_connect_handler(hdd_adapter_t *pAdapter,
 			sme_remove_bssid_from_scan_list(pHddCtx->hHal,
 			pHddStaCtx->conn_info.bssId.bytes);
 		}
-		pHddCtx->sta_to_adapter[sta_id] = NULL;
+		if (sta_id < HDD_MAX_STA_COUNT)
+			pHddCtx->sta_to_adapter[sta_id] = NULL;
 	}
 	/* Clear saved connection information in HDD */
 	hdd_conn_remove_connect_info(pHddStaCtx);
@@ -1940,14 +1941,20 @@ void hdd_save_gtk_params(hdd_adapter_t *adapter,
 	if (is_reassoc) {
 		kek = csr_roam_info->kek;
 		kek_len = csr_roam_info->kek_len;
-	} else {
+    } else {
+#if defined(FEATURE_SUPPORT_LGE)
+        // don't use it in lge devices. it is not verified yet
+        return;
+#else
 		/*
 		 * This should come for FILS case only.
 		 * Caller should make sure fils_join_rsp is
 		 * not NULL, if there is need to use else where.
 		 */
+
 		kek = csr_roam_info->fils_join_rsp->kek;
 		kek_len = csr_roam_info->fils_join_rsp->kek_len;
+#endif
 	}
 
 	wlan_hdd_save_gtk_offload_params(adapter, NULL, kek, kek_len,

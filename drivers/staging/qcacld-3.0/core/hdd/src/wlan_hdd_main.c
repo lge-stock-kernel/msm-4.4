@@ -199,7 +199,7 @@ static qdf_wake_lock_t wlan_wake_lock;
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0))
 static const struct wiphy_wowlan_support wowlan_support_reg_init = {
 	.flags = WIPHY_WOWLAN_ANY |
-		 WIPHY_WOWLAN_MAGIC_PKT |
+	         WIPHY_WOWLAN_MAGIC_PKT |
 		 WIPHY_WOWLAN_DISCONNECT |
 		 WIPHY_WOWLAN_SUPPORTS_GTK_REKEY |
 		 WIPHY_WOWLAN_GTK_REKEY_FAILURE |
@@ -2040,15 +2040,22 @@ int hdd_wlan_start_modules(hdd_context_t *hdd_ctx, hdd_adapter_t *adapter,
 		return -EINVAL;
 	}
 
-	mutex_lock(&hdd_ctx->iface_change_lock);
-	hdd_ctx->start_modules_in_progress = true;
-
 	if (QDF_TIMER_STATE_RUNNING ==
 	    qdf_mc_timer_get_current_state(&hdd_ctx->iface_change_timer)) {
 
 		hdd_debug("Interface change Timer running Stop timer");
 		qdf_mc_timer_stop(&hdd_ctx->iface_change_timer);
 	}
+
+	mutex_lock(&hdd_ctx->iface_change_lock);
+	if (hdd_ctx->driver_status == DRIVER_MODULES_ENABLED) {
+		mutex_unlock(&hdd_ctx->iface_change_lock);
+		hdd_info("Driver modules already Enabled");
+		EXIT();
+		return 0;
+	}
+
+	hdd_ctx->start_modules_in_progress = true;
 
 	switch (hdd_ctx->driver_status) {
 	case DRIVER_MODULES_UNINITIALIZED:
@@ -2144,9 +2151,6 @@ int hdd_wlan_start_modules(hdd_context_t *hdd_ctx, hdd_adapter_t *adapter,
 		hdd_enable_power_management();
 		hdd_info("Driver Modules Successfully Enabled");
 		hdd_ctx->driver_status = DRIVER_MODULES_ENABLED;
-		break;
-	case DRIVER_MODULES_ENABLED:
-		hdd_info("Driver modules already Enabled");
 		break;
 	default:
 		hdd_err("WLAN start invoked in wrong state! :%d\n",
@@ -9566,9 +9570,12 @@ static void hdd_iface_change_callback(void *priv)
 
 	ENTER();
 	hdd_debug("Interface change timer expired close the modules!");
+    // 2018.01.16 Add synchronization for hdd_iface_change_callback and wlan_hdd_pld_remove, QCT Case 03298903
+    mutex_lock(&hdd_init_deinit_lock);
 	ret = hdd_wlan_stop_modules(hdd_ctx, false);
 	if (ret)
 		hdd_err("Failed to stop modules");
+    mutex_unlock(&hdd_init_deinit_lock);
 	EXIT();
 }
 
@@ -9836,6 +9843,12 @@ int hdd_wlan_startup(struct device *dev)
 
 	if (hdd_ctx->config->fIsImpsEnabled)
 		hdd_set_idle_ps_config(hdd_ctx, true);
+// LGE_PATCH_S : set IMPS according to INI (CN03163379)
+#ifdef FEATURE_SUPPORT_LGE
+	else
+		hdd_set_idle_ps_config(hdd_ctx, false);
+#endif
+// LGE_PATCH_E : set IMPS according to INI (CN03163379)
 
 	if (hdd_ctx->config->sifs_burst_duration) {
 		set_value = (SIFS_BURST_DUR_MULTIPLIER) *
@@ -11058,17 +11071,22 @@ static ssize_t wlan_hdd_state_ctrl_param_write(struct file *filp,
 	}
 
 	if (!cds_is_driver_loaded()) {
+#ifdef MODULE
 		init_completion(&wlan_start_comp);
+#endif
 		rc = wait_for_completion_timeout(&wlan_start_comp,
 				msecs_to_jiffies(HDD_WLAN_START_WAIT_TIME));
 		if (!rc) {
 			hdd_alert("Timed-out waiting in wlan_hdd_state_ctrl_param_write");
 			ret = -EINVAL;
+#ifdef MODULE
 			hdd_start_complete(ret);
+#endif
 			return ret;
 		}
-
+#ifdef MODULE
 		hdd_start_complete(0);
+#endif
 	}
 
 exit:

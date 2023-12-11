@@ -4730,8 +4730,8 @@ enum hdd_link_speed_rpt_type {
  * These Nss parameters will have 32-bit configuration value, 2 bits are
  * allocated for each vdev.
  * Valid values are:
- * Min value – 0x5555
- * Max value – 0xAAAA
+ * Min value - 0x5555
+ * Max value - 0xAAAA
  * Default value will be 0xAAAA for both the parameters.
  * Value 0x5555 will configure all vdevs in 1x1 mode in 2.4G band.
  * Value 0xAAAA will configure all vdevs in 2x2 mode in 2.4G band.
@@ -4776,8 +4776,8 @@ enum hdd_link_speed_rpt_type {
  * These Nss parameters will have 32-bit configuration value, 2 bits are
  * allocated for each vdev.
  * Valid values are:
- * Min value – 0x5555
- * Max value – 0xAAAA
+ * Min value - 0x5555
+ * Max value - 0xAAAA
  * Default value will be 0xAAAA for both the parameters.
  * Value 0x5555 will configure all vdevs in 1x1 mode in 5 band.
  * Value 0xAAAA will configure all vdevs in 2x2 mode in 5 band.

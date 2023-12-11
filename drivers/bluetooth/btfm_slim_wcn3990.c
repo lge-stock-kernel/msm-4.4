@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 #include <linux/slimbus/slimbus.h>
-#include <btfm_slim.h>
-#include <btfm_slim_wcn3990.h>
+#include "btfm_slim.h"
+#include "btfm_slim_wcn3990.h"
 
 /* WCN3990 Port assignment */
 struct btfmslim_ch wcn3990_rxport[] = {
@@ -82,7 +82,7 @@ int btfm_slim_chrk_enable_port(struct btfmslim *btfmslim, uint8_t port_num,
 	uint8_t rxport, uint8_t enable)
 {
 	int ret = 0;
-	uint8_t reg_val = 0;
+	uint8_t reg_val = 0, en;
 	uint8_t port_bit = 0;
 	uint16_t reg;
 
@@ -149,18 +149,17 @@ enable_disable_txport:
 	reg = CHRK_SB_PGD_PORT_TX_CFGN(port_num);
 
 enable_disable_rxport:
-	if (enable) {
-		if (is_fm_port(port_num))
-			reg_val = CHRK_SB_PGD_PORT_ENABLE |
-					CHRK_SB_PGD_PORT_WM_L3;
-		else if (port_num == CHRK_SB_PGD_PORT_TX_SCO)
-			reg_val = CHRK_SB_PGD_PORT_ENABLE |
-					CHRK_SB_PGD_PORT_WM_L1;
-		else
-			reg_val = CHRK_SB_PGD_PORT_ENABLE |
-					CHRK_SB_PGD_PORT_WM_LB;
-	} else
-		reg_val = CHRK_SB_PGD_PORT_DISABLE;
+	if (enable)
+		en = CHRK_SB_PGD_PORT_ENABLE;
+	else
+		en = CHRK_SB_PGD_PORT_DISABLE;
+
+	if (is_fm_port(port_num))
+		reg_val = en | CHRK_SB_PGD_PORT_WM_L8;
+	else if (port_num == CHRK_SB_PGD_PORT_TX_SCO)
+		reg_val = enable ? en | CHRK_SB_PGD_PORT_WM_L1 : en;
+	else
+		reg_val = enable ? en | CHRK_SB_PGD_PORT_WM_LB : en;
 
 	if (enable && port_num == CHRK_SB_PGD_PORT_TX_SCO)
 		BTFMSLIM_INFO("programming SCO Tx with reg_val %d to reg 0x%x",
