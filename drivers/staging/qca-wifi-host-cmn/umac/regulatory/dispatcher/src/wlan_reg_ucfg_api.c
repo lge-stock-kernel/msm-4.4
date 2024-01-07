@@ -295,3 +295,8 @@ QDF_STATUS ucfg_reg_set_hal_reg_cap(struct wlan_objmgr_psoc *psoc,
 	return reg_set_hal_reg_cap(psoc, hal_reg_cap, phy_cnt);
 }
 qdf_export_symbol(ucfg_reg_set_hal_reg_cap);
+
+QDF_STATUS ucfg_set_ignore_fw_reg_offload_ind(struct wlan_objmgr_psoc *psoc)
+{
+	return reg_set_ignore_fw_reg_offload_ind(psoc);
+}

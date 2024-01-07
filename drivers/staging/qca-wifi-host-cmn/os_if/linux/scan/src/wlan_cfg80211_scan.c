@@ -367,9 +367,9 @@ static inline void wlan_hdd_sched_scan_update_relative_rssi(
 {
 	pno_request->relative_rssi_set = request->relative_rssi_set;
 	pno_request->relative_rssi = request->relative_rssi;
-	if (NL80211_BAND_2GHZ == request->rssi_adjust.band)
+	if (NL80211_BAND_2GHZ == (enum nl80211_band)(request->rssi_adjust.band))
 		pno_request->band_rssi_pref.band = WLAN_BAND_2_4_GHZ;
-	else if (NL80211_BAND_5GHZ == request->rssi_adjust.band)
+	else if (NL80211_BAND_5GHZ == (enum nl80211_band)(request->rssi_adjust.band))
 		pno_request->band_rssi_pref.band = WLAN_BAND_5_GHZ;
 	pno_request->band_rssi_pref.rssi = request->rssi_adjust.delta;
 }
