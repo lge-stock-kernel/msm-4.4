@@ -43,6 +43,13 @@
 #define SIOCIOCTLTX99 (SIOCDEVPRIVATE+13)
 #endif
 
+#ifdef FEATURE_SUPPORT_LGE
+/*LGE_CHNAGE_S, DRIVER scan_suppress command, 2017-06-12, moon-wifi@lge.com*/
+#include <asm/types.h>
+#include <cds_mq.h>
+/*LGE_CHNAGE_E, DRIVER scan_suppress command, 2017-06-12, moon-wifi@lge.com*/
+#endif
+
 /*
  * Size of Driver command strings from upper layer
  */
@@ -3158,11 +3165,13 @@ static int drv_cmd_country(hdd_adapter_t *adapter,
 	if (!((country_code[0] == 'X' && country_code[1] == 'X') ||
 	    (country_code[0] == '0' && country_code[1] == '0'))) {
 		cc_from_db = cds_get_country_from_alpha2(country_code);
+#ifndef FEATURE_SUPPORT_LGE
 		if (cc_from_db == CTRY_DEFAULT) {
 			hdd_err("Invalid country code: %c%c",
 				country_code[0], country_code[1]);
 			return -EINVAL;
 		}
+#endif
 	}
 
 	INIT_COMPLETION(adapter->change_country_code);
@@ -6871,6 +6880,43 @@ static int drv_cmd_dummy(hdd_adapter_t *adapter,
 	return 0;
 }
 
+#ifdef FEATURE_SUPPORT_LGE
+extern void wlan_hdd_set_scan_suppress(unsigned long on_off);
+/*LGE_CHNAGE_S, DRIVER scan_suppress command, 2017-06-12, moon-wifi@lge.com*/
+static int drv_cmd_set_scansuppress(hdd_adapter_t *adapter,
+			 hdd_context_t *hdd_ctx,
+             uint8_t *command,
+			 uint8_t command_len,
+			 hdd_priv_data_t *priv_data)
+{
+	int ret;
+	unsigned long on_off = 0;
+	size_t len = 0;
+	hdd_err("[LGE_COMMAND]:%s: \"%s\"", adapter->dev->name, command);
+
+	len = strlen(command);
+	if (len != 18) {
+		hdd_err("Incorrect Strvalue");
+		return -EINVAL;
+	}
+
+	ret = kstrtoul(command + 17, 10, &on_off);
+	if (ret != 0) {
+		hdd_err("Error in conversion from int to str: %d", ret);
+		return -EINVAL;
+	}
+
+	if (on_off < 0 || on_off > 1) {
+		hdd_err("Incorrect Testvalue!!(%ld)", on_off);
+		return -EINVAL;
+	}
+
+	wlan_hdd_set_scan_suppress(on_off);
+	return 0;
+}
+/*LGE_CHNAGE_E, DRIVER scan_suppress command, 2017-06-12, moon-wifi@lge.com*/
+#endif
+
 /*
  * handler for any unsupported wlan hdd driver command
  */
@@ -7552,6 +7598,11 @@ static const struct hdd_drv_cmd hdd_drv_cmds[] = {
 	{"RXFILTER-STOP",             drv_cmd_dummy, false},
 	{"BTCOEXSCAN-START",          drv_cmd_dummy, false},
 	{"BTCOEXSCAN-STOP",           drv_cmd_dummy, false},
+#ifdef FEATURE_SUPPORT_LGE
+/*LGE_CHNAGE_S, DRIVER scan_suppress command, 2017-06-12, moon-wifi@lge.com*/
+	{"SET_SCANSUPPRESS",          drv_cmd_set_scansuppress},
+/*LGE_CHNAGE_E, DRIVER scan_suppress command, 2017-06-12, moon-wifi@lge.com*/
+#endif
 };
 
 /**

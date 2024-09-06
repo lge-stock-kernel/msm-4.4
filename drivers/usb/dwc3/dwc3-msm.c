@@ -3762,6 +3762,10 @@ int get_psy_type(struct dwc3_msm *mdwc)
 	power_supply_get_property(mdwc->usb_psy, POWER_SUPPLY_PROP_REAL_TYPE,
 			&pval);
 
+#ifndef CONFIG_LGE_USB
+	dev_info(mdwc->dev, "POWER_SUPPLY_PROP_REAL_TYPE: %d\n", pval.intval);
+#endif
+
 	return pval.intval;
 }
 
@@ -3769,6 +3773,14 @@ static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA)
 {
 	union power_supply_propval pval = {0};
 	int ret, psy_type;
+
+
+#ifdef CONFIG_LGE_PM_LGE_POWER_CLASS_CABLE_DETECT
+	power_supply_get_property(mdwc->usb_psy, POWER_SUPPLY_PROP_PRESENT, &pval);
+	if (!pval.intval)
+		return 0;
+#endif
+
 
 	psy_type = get_psy_type(mdwc);
 	if (psy_type == POWER_SUPPLY_TYPE_USB_FLOAT) {

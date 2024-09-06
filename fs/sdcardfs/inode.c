@@ -95,8 +95,11 @@ static int sdcardfs_create(struct inode *dir, struct dentry *dentry,
 		err = -ENOMEM;
 		goto out_unlock;
 	}
+    copied_fs->umask = 0;
+    task_lock(current);
 	current->fs = copied_fs;
-	current->fs->umask = 0;
+    task_unlock(current);
+
 	err = vfs_create2(lower_dentry_mnt, d_inode(lower_parent_dentry), lower_dentry, mode, want_excl);
 	if (err)
 		goto out;
@@ -110,7 +113,9 @@ static int sdcardfs_create(struct inode *dir, struct dentry *dentry,
 	fixup_lower_ownership(dentry, dentry->d_name.name);
 
 out:
+    task_lock(current);
 	current->fs = saved_fs;
+    task_unlock(current);
 	free_fs_struct(copied_fs);
 out_unlock:
 	unlock_dir(lower_parent_dentry);
@@ -214,7 +219,7 @@ out_eacces:
 	return err;
 }
 
-#if 0
+#ifdef CONFIG_MACH_LGE
 static int sdcardfs_symlink(struct inode *dir, struct dentry *dentry,
 			  const char *symname)
 {
@@ -222,8 +227,9 @@ static int sdcardfs_symlink(struct inode *dir, struct dentry *dentry,
 	struct dentry *lower_dentry;
 	struct dentry *lower_parent_dentry = NULL;
 	struct path lower_path;
+	const struct cred *saved_cred = NULL;
 
-	OVERRIDE_CRED(SDCARDFS_SB(dir->i_sb));
+	OVERRIDE_CRED(SDCARDFS_SB(dir->i_sb), saved_cred, SDCARDFS_I(dir));
 
 	sdcardfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
@@ -232,7 +238,7 @@ static int sdcardfs_symlink(struct inode *dir, struct dentry *dentry,
 	err = vfs_symlink(d_inode(lower_parent_dentry), lower_dentry, symname);
 	if (err)
 		goto out;
-	err = sdcardfs_interpose(dentry, dir->i_sb, &lower_path);
+	err = sdcardfs_interpose(dentry, dir->i_sb, &lower_path, SDCARDFS_I(dir)->data->userid);
 	if (err)
 		goto out;
 	fsstack_copy_attr_times(dir, sdcardfs_lower_inode(dir));
@@ -241,7 +247,7 @@ static int sdcardfs_symlink(struct inode *dir, struct dentry *dentry,
 out:
 	unlock_dir(lower_parent_dentry);
 	sdcardfs_put_lower_path(dentry, &lower_path);
-	REVERT_CRED();
+	REVERT_CRED(saved_cred);
 	return err;
 }
 #endif
@@ -316,8 +322,11 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 		unlock_dir(lower_parent_dentry);
 		goto out_unlock;
 	}
+    copied_fs->umask = 0;
+    task_lock(current);
 	current->fs = copied_fs;
-	current->fs->umask = 0;
+    task_unlock(current);
+
 	err = vfs_mkdir2(lower_mnt, d_inode(lower_parent_dentry), lower_dentry, mode);
 
 	if (err) {
@@ -377,7 +386,10 @@ static int sdcardfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode
 		}
 	}
 out:
+    task_lock(current);
 	current->fs = saved_fs;
+    task_unlock(current);
+
 	free_fs_struct(copied_fs);
 out_unlock:
 	sdcardfs_put_lower_path(dentry, &lower_path);
@@ -541,7 +553,7 @@ out_eacces:
 	return err;
 }
 
-#if 0
+#ifdef CONFIG_MACH_LGE
 static int sdcardfs_readlink(struct dentry *dentry, char __user *buf, int bufsiz)
 {
 	int err;
@@ -569,7 +581,7 @@ out:
 }
 #endif
 
-#if 0
+#ifdef CONFIG_MACH_LGE
 static const char *sdcardfs_follow_link(struct dentry *dentry, void **cookie)
 {
 	char *buf;
@@ -868,6 +880,8 @@ static int sdcardfs_getattr(struct vfsmount *mnt, struct dentry *dentry,
 		goto out;
 	sdcardfs_copy_and_fix_attrs(d_inode(dentry),
 			      d_inode(lower_path.dentry));
+	fsstack_copy_inode_size(d_inode(dentry),
+			d_inode(lower_path.dentry));
 	err = sdcardfs_fillattr(mnt, d_inode(dentry), &lower_stat, stat);
 out:
 	sdcardfs_put_lower_path(dentry, &lower_path);
@@ -877,6 +891,11 @@ out:
 const struct inode_operations sdcardfs_symlink_iops = {
 	.permission2	= sdcardfs_permission,
 	.setattr2	= sdcardfs_setattr,
+#ifdef CONFIG_MACH_LGE
+	.readlink	= sdcardfs_readlink,
+	.follow_link	= sdcardfs_follow_link,
+	.put_link	= kfree_put_link,
+#else
 	/* XXX Following operations are implemented,
 	 *     but FUSE(sdcard) or FAT does not support them
 	 *     These methods are *NOT* perfectly tested.
@@ -884,6 +903,7 @@ const struct inode_operations sdcardfs_symlink_iops = {
 	.follow_link	= sdcardfs_follow_link,
 	.put_link	= kfree_put_link,
 	 */
+#endif
 };
 
 const struct inode_operations sdcardfs_dir_iops = {
@@ -898,6 +918,9 @@ const struct inode_operations sdcardfs_dir_iops = {
 	.setattr	= sdcardfs_setattr_wrn,
 	.setattr2	= sdcardfs_setattr,
 	.getattr	= sdcardfs_getattr,
+#ifdef CONFIG_MACH_LGE
+	.symlink	= sdcardfs_symlink,
+#else
 	/* XXX Following operations are implemented,
 	 *     but FUSE(sdcard) or FAT does not support them
 	 *     These methods are *NOT* perfectly tested.
@@ -905,6 +928,7 @@ const struct inode_operations sdcardfs_dir_iops = {
 	.link		= sdcardfs_link,
 	.mknod		= sdcardfs_mknod,
 	 */
+#endif
 };
 
 const struct inode_operations sdcardfs_main_iops = {
