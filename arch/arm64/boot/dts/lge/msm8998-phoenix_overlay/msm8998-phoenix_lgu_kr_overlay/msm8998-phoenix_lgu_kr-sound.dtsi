@@ -11,10 +11,14 @@
  */
 
 &soc {
-	/delete-node/ sound-9335;
-	/delete-node/ msm_cdc_pinctrl@75;
+	sound-9335 {
+		status = "disabled";
+	};
+	msm_cdc_pinctrl@75 {
+		status = "disabled";
+	};
 
-	sound-tavil {
+	snd_934x: sound-tavil {
 		compatible = "qcom,msm8998-asoc-snd-tavil";
 		qcom,model = "msm8998-tavil-snd-card";
 		qcom,ext-disp-audio-rx;
@@ -61,7 +65,7 @@
 		qcom,mbhc-audio-jack-type = "4-pole-jack";
 		qcom,msm-mbhc-moist-cfg = <0>, <0>, <1>;
 		lge,msm-mbhc-extn-cable = <0>;
-		/delete-property/ qcom,us-euro-gpios;
+		qcom,us-euro-gpios = <>;
 		qcom,tavil-mclk-clk-freq = <9600000>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&pcm3>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
@@ -190,7 +194,6 @@
 			dac,power-gpio = <&pm8998_gpios 10 0x0>;
 			dac,hph-sw = <&pm8998_gpios 12 0x0>;
 			dac,reset-gpio = <&pmi8998_gpios 2 0x0>;
-			dac,use-internal-ldo;
 		};
 	};
 
@@ -238,8 +241,13 @@
 };
 
 &slim_aud {
-	/delete-node/ tasha_codec;
-	/delete-node/ swr_master;
+	tasha_codec {
+		status = "disabled";
+
+		swr_master {
+			status = "disabled";
+		};
+	};
 
 	tavil_codec {
 		qcom,cdc-micbias1-mv = <2750>;
@@ -344,14 +352,14 @@
 &rpm_bus {
 	rpm-regulator-ldoa19 {
 		status = "okay";
-pm8998_l19: regulator-l19 {
-				regulator-min-microvolt = <3300000>;
-				regulator-max-microvolt = <3300000>;
-				qcom,init-voltage = <3300000>;
-				qcom,vdd-voltage-level = <3300000 3300000>;
-				regulator-always-on;
-				status = "okay";
-			};
+		pm8998_l19: regulator-l19 {
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <3300000>;
+			qcom,vdd-voltage-level = <3300000 3300000>;
+			regulator-always-on;
+			status = "okay";
+		};
 	};
 };
 

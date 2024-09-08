@@ -780,7 +780,7 @@ int smblib_get_prop_typec_cc_disable(struct smb_charger *chg,
 				union power_supply_propval *val);
 int smblib_set_prop_typec_cc_disable(struct smb_charger *chg,
 				const union power_supply_propval *val);
-int smblib_get_prop_typec_is_ocp(struct smb_charger *chg,
+int smblib_get_prop_is_ocp(struct smb_charger *chg,
 				union power_supply_propval *val);
 #endif
 void smblib_suspend_on_debug_battery(struct smb_charger *chg);

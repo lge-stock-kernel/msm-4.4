@@ -12,13 +12,14 @@
 
 
 /dts-v1/;
+/plugin/;
 
-#include "../../../qcom/msm8998-v2.1.dtsi"
-#include "msm8998-phoenix_sb_jp.dtsi"
+#include "msm8998-phoenix_lgu_kr.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8998 v2.1 MTP";
 	compatible = "qcom,msm8998-mtp", "qcom,msm8998", "qcom,mtp";
+	qcom,msm-id = <292 0x20001>;
 	qcom,board-id = <0x508 0>;
 };
 
@@ -36,10 +37,8 @@
     };
 };
 
-&soc {
-    i2c_1: i2c@c175000 {
-        es9218-codec@48 {
-            dac,use-internal-ldo;
-        };
-    };
+&i2c_1 {
+	es9218-codec@48 {
+		dac,use-internal-ldo;
+	};
 };

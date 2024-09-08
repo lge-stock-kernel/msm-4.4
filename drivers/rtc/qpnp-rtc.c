@@ -509,7 +509,11 @@ static int qpnp_rtc_probe(struct platform_device *pdev)
 	struct device_node *child;
 
 #ifdef CONFIG_RTC_DRV_QPNP_YEAR
+#ifdef CONFIG_MACH_MSM8998_PHOENIX_LGU_KR
+	rtc_offset_secs = mktime(CONFIG_RTC_DRV_QPNP_YEAR, 1, 1, 0, 0, 0);
+#else // V30, Phoenix SB, Canada
 	rtc_offset_secs = mktime(CONFIG_RTC_DRV_QPNP_YEAR, 3, 1, 0, 0, 0);
+#endif
 #endif
 
 	rtc_dd = devm_kzalloc(&pdev->dev, sizeof(*rtc_dd), GFP_KERNEL);

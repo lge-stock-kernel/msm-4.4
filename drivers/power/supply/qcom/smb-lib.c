@@ -1046,7 +1046,8 @@ static int lgcc_set_float_voltage(struct smb_charger *chg, int float_voltage) {
 		} else {
 			smblib_get_prop_batt_status(chg, &val);
 			batt_status = val.intval;
-			if (batt_status == POWER_SUPPLY_STATUS_NOT_CHARGING
+			if ((batt_status == POWER_SUPPLY_STATUS_NOT_CHARGING
+				|| batt_status == POWER_SUPPLY_STATUS_FULL)
 					&& !(stat &GF_BATT_OV_BIT)
 					&& (batt_vol <= float_voltage - CHARING_STOP_DELTA)) {
 				smblib_dbg(chg, PR_LGE, "Retry charging enable on low float.\n");
@@ -4094,7 +4095,7 @@ int smblib_get_prop_typec_cc_disable(struct smb_charger *chg,
 
 	return rc;
 }
-int smblib_get_prop_typec_is_ocp(struct smb_charger *chg,
+int smblib_get_prop_is_ocp(struct smb_charger *chg,
 		union power_supply_propval *val)
 {
 	const struct apsd_result *apsd_result = smblib_get_apsd_result(chg);
@@ -5861,6 +5862,11 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 	if (!rising)
 		return;
 
+#ifdef CONFIG_LGE_USB_MOISTURE_DETECTION
+	if (is_client_vote_enabled(chg->usb_icl_votable, MOISTURE_VOTER))
+		return;
+#endif
+
 	apsd_result = smblib_update_usb_type(chg);
 
 	if (!chg->typec_legacy_valid)
@@ -6361,11 +6367,18 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 	if (chg->pd_active)
 		goto skip_cc_ctrl;
 #endif
+
+#ifdef CONFIG_LGE_USB_MOISTURE_DETECTION
+	if (!is_client_vote_enabled(chg->usb_icl_votable, MOISTURE_VOTER)) {
+#endif
 	/* enable DRP */
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
 				 TYPEC_POWER_ROLE_CMD_MASK, 0);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't enable DRP rc=%d\n", rc);
+#ifdef CONFIG_LGE_USB_MOISTURE_DETECTION
+	}
+#endif
 
 	/* HW controlled CC_OUT */
 	rc = smblib_masked_write(chg, TAPER_TIMER_SEL_CFG_REG,
