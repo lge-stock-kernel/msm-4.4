@@ -99,6 +99,12 @@ config ANDROID_VSOC
 	  a 'cuttlefish' Android image inside QEmu. The driver interacts with
 	  a QEmu ivshmem device. If built as a module, it will be called vsoc.
 
+config MDFPP_CCAUDIT
+	bool "Audit for Common Criteria Requirement"
+    default n
+	help
+	  This adds support for ccaudit logging using additional fifth buffer
+
 source "drivers/staging/android/ion/Kconfig"
 
 source "drivers/staging/android/fiq_debugger/Kconfig"
