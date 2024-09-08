@@ -11107,8 +11107,12 @@ int hdd_wlan_startup(struct device *dev)
 
 	if (hdd_ctx->config->fIsImpsEnabled)
 		hdd_set_idle_ps_config(hdd_ctx, true);
+// LGE_PATCH_S : set IMPS according to INI (CN03163379)
+#ifdef FEATURE_SUPPORT_LGE
 	else
 		hdd_set_idle_ps_config(hdd_ctx, false);
+#endif
+// LGE_PATCH_E : set IMPS according to INI (CN03163379)
 
 	qdf_sched_delayed_work(&hdd_ctx->iface_idle_work,
 			       hdd_ctx->config->iface_change_wait_time);
