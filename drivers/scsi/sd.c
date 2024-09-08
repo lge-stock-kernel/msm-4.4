@@ -1698,7 +1698,7 @@ static const struct block_device_operations sd_fops = {
 #ifdef CONFIG_COMPAT
 	.compat_ioctl		= sd_compat_ioctl,
 #endif
-#ifdef CONFIG_MACH_LGE
+#ifndef CONFIG_MACH_LGE
 	.check_events		= sd_check_events,
 #endif
 	.revalidate_disk	= sd_revalidate_disk,
