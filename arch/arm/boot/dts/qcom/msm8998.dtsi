@@ -285,6 +285,11 @@
 	firmware: firmware {
 		android {
 			compatible = "android,firmware";
+			vbmeta {
+				compatible = "android,vbmeta";
+				parts = "vbmeta,boot,system,vendor,dtbo,product";
+			};
+
 			fstab {
 				compatible = "android,fstab";
 				vendor {
@@ -292,7 +297,7 @@
 					dev = "/dev/block/platform/soc/1da4000.ufshc/by-name/vendor";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait,slotselect,verify";
+					fsmgr_flags = "wait,slotselect,avb";
 					status = "ok";
 				};
 				product {
@@ -300,14 +305,14 @@
 					dev = "/dev/block/platform/soc/1da4000.ufshc/by-name/product";
 					type = "ext4";
 					mnt_flags = "ro,barrier=1,discard";
-					fsmgr_flags = "wait,slotselect,verify";
+					fsmgr_flags = "wait,slotselect,avb";
 					status = "ok";
 				};
 			};
 		};
 	};
 
-	reserved-memory {
+	reserved_memory: reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;

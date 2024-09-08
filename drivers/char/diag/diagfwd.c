@@ -1063,6 +1063,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 				write_len = diag_send_data(reg_item, buf, len);
 		} else {
 
+			mutex_unlock(&driver->md_session_lock);
 /* [LGE_S][BSP_Modem] LGSSL to support testmode cmd */
 #ifdef CONFIG_LGE_DM_APP
 			if (driver->logging_mode == DIAG_MEMORY_DEVICE_MODE)
@@ -1074,8 +1075,6 @@ int diag_process_apps_pkt(unsigned char *buf, int len, int pid)
 			{
 #endif
 /* [LGE_E][BSP_Modem] LGSSL to support testmode cmd */
-
-			mutex_unlock(&driver->md_session_lock);
 
 			if (MD_PERIPHERAL_MASK(reg_item->proc) &
 				driver->logging_mask) {

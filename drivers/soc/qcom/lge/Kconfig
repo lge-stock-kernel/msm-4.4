@@ -285,6 +285,13 @@ config LGE_DM_VERITY_RECOVERY
 	  Sometimes, dm-bufio has invalid data. If data is corrupted,
 	  try to recover data.
 
+config LGE_USE_DT_OVERLAY
+	tristate "Support CONFIG_BUILD_ARM64_DT_OVERLAY for LGE POS MODEL"
+	default n
+	depends on MACH_LGE
+	help
+	  Support CONFIG_BUILD_ARM64_DT_OVERLAY for LGE POS MODEL
+
 endmenu
 
 menu "LGE QFPROM Values"

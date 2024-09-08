@@ -12,6 +12,9 @@ dts-dirs += mediatek
 ifneq ($(CONFIG_MACH_LGE), y)
 dts-dirs += qcom
 else
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
+dts-dirs += qcom
+endif
 dts-dirs += lge
 endif
 dts-dirs += rockchip

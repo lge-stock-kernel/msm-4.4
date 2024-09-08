@@ -196,3 +196,18 @@
 &wil6210 {
 	status = "disabled";
 };
+
+
+&firmware {
+	android {
+		/delete-node/ vbmeta;
+		fstab {
+			product {
+				fsmgr_flags = "wait,slotselect,verify";
+			};
+			vendor {
+				fsmgr_flags = "wait,slotselect,verify";
+			};
+		};
+	};
+};

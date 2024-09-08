@@ -904,7 +904,9 @@ static int fg_get_jeita_threshold(struct fg_chip *chip,
 #ifdef CONFIG_LGE_PM
 #define CUT_OFF_LOW_LIMIT_TEMP		50	//5 dgree
 #define CUT_OFF_LOW_LIMIT_CLEAR_TEMP	100 //10 dgree
-#define LOW_TEMP_CUT_OFF_VOLTAGE	3300 //3.3V
+#define LOW_TEMP_CUT_OFF_VOLTAGE		3300 //3.3V
+#define LOW_TEMP_CUT_OFF_CURRENT		100 //100 mA
+#define DEFAULT_CUT_OFF_CURRENT		200 //200 mA
 #endif
 
 #define BATT_TEMP_NUMR		1
@@ -953,6 +955,14 @@ static int fg_get_battery_temp(struct fg_chip *chip, int *val)
 			pr_err("Error in writing cutoff_volt, rc=%d\n", rc);
 			return rc;
 		}
+		fg_encode(chip->sp, FG_SRAM_SYS_STANDBY_CURR, LOW_TEMP_CUT_OFF_CURRENT,	cutoff_buf);
+		rc = fg_sram_write(chip, chip->sp[FG_SRAM_SYS_STANDBY_CURR].addr_word,
+				chip->sp[FG_SRAM_SYS_STANDBY_CURR].addr_byte, cutoff_buf,
+				chip->sp[FG_SRAM_SYS_STANDBY_CURR].len, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing sys_term_curr, rc=%d\n", rc);
+			return rc;
+		}
 		chip->cut_off_low_temp_flag = true;
 		pr_err("low update_temp %d flag=%d\n",
 			temp,  chip->cut_off_low_temp_flag);
@@ -964,6 +974,14 @@ static int fg_get_battery_temp(struct fg_chip *chip, int *val)
 				chip->sp[FG_SRAM_CUTOFF_VOLT].len, FG_IMA_DEFAULT);
 		if (rc < 0) {
 			pr_err("Error in writing cutoff_volt, rc=%d\n", rc);
+			return rc;
+		}
+		fg_encode(chip->sp, FG_SRAM_SYS_STANDBY_CURR, DEFAULT_CUT_OFF_CURRENT,	cutoff_buf);
+		rc = fg_sram_write(chip, chip->sp[FG_SRAM_SYS_STANDBY_CURR].addr_word,
+				chip->sp[FG_SRAM_SYS_STANDBY_CURR].addr_byte, cutoff_buf,
+				chip->sp[FG_SRAM_SYS_STANDBY_CURR].len, FG_IMA_DEFAULT);
+		if (rc < 0) {
+			pr_err("Error in writing sys_term_curr, rc=%d\n", rc);
 			return rc;
 		}
 		chip->cut_off_low_temp_flag = false;
@@ -1545,16 +1563,30 @@ int fg_age_detection_level(struct fg_chip *chip)
 {
 	int age_level = 0;
 
-	age_level = fg_age_detection(chip);
+	age_level = fg_age_detection_ldb(chip);
 
-	if(age_level == 1)
-		age_level = 100;
-	else if(age_level == 2)
-		age_level = 80;
+	if(age_level > 90)
+		return 100;
+	else if(age_level > 80)
+		return 90;
+	else if(age_level > 70)
+		return 80;
+	else if(age_level > 60)
+		return 70;
+	else if(age_level > 50)
+		return 60;
+	else if(age_level > 40)
+		return 50;
+	else if(age_level > 30)
+		return 40;
+	else if(age_level > 20)
+		return 30;
+	else if(age_level > 10)
+		return 20;
+	else if (age_level > 0)
+		return 10;
 	else
-		age_level = 49;
-
-	return age_level;
+		return 0;
 }
 #endif
 
@@ -5533,7 +5565,7 @@ static int fg_hw_init(struct fg_chip *chip)
 	}
 
 #ifdef CONFIG_LGE_PM
-	fg_encode(chip->sp, FG_SRAM_SYS_STANDBY_CURR, 200,
+	fg_encode(chip->sp, FG_SRAM_SYS_STANDBY_CURR, DEFAULT_CUT_OFF_CURRENT,
 		buf);
 	rc = fg_sram_write(chip, chip->sp[FG_SRAM_SYS_STANDBY_CURR].addr_word,
 			chip->sp[FG_SRAM_SYS_STANDBY_CURR].addr_byte, buf,
