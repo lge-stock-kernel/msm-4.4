@@ -17,6 +17,10 @@ config PRIMA_WLAN_OKC
 	bool "Enable the Prima WLAN Opportunistic Key Caching feature"
 	default n
 
+config PRIMA_WLAN_11AC_HIGH_TP
+	bool "Enable the Prima WLAN 802.11ac High Throughput option (depends upon kernel support)"
+	default n
+
 config WLAN_FEATURE_11W
 	bool "Enable the WLAN 802.11w Protected Management Frames feature"
 	default n
@@ -118,6 +122,10 @@ config QCACLD_WLAN_LFR2
 
 config WLAN_FEATURE_DISA
 	bool "Enable DISA certification feature"
+	default n
+
+config WLAN_SPECTRAL_SCAN
+	bool "Enable Spectral Scan feature"
 	default n
 
 config WLAN_FEATURE_FIPS

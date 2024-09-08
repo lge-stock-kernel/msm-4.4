@@ -111,7 +111,6 @@
 #include <wlan_cp_stats_mc_ucfg_api.h>
 #include "wlan_hdd_object_manager.h"
 #include "wlan_hdd_coex_config.h"
-#include "wlan_hdd_hw_capability.h"
 
 #define g_mode_rates_size (12)
 #define a_mode_rates_size (8)
@@ -15069,7 +15068,6 @@ const struct wiphy_vendor_command hdd_wiphy_vendor_commands[] = {
 
 	FEATURE_COEX_CONFIG_COMMANDS
 	FEATURE_MPTA_HELPER_COMMANDS
-	FEATURE_HW_CAPABILITY_COMMANDS
 };
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
@@ -15494,7 +15492,11 @@ int wlan_hdd_cfg80211_init(struct device *dev,
 	    || pCfg->isEseIniFeatureEnabled
 #endif
 	    ) {
+#ifndef FEATURE_SUPPORT_LGE
+// LGE_CHANGE_S, Do not use SUPPORTS_FW_ROAM because we support BSSID selection by framework
 		wiphy->flags |= WIPHY_FLAG_SUPPORTS_FW_ROAM;
+// LGE_CHANGE_E, Do not use SUPPORTS_FW_ROAM because we support BSSID selection by framework
+#endif
 	}
 #ifdef FEATURE_WLAN_TDLS
 	wiphy->flags |= WIPHY_FLAG_SUPPORTS_TDLS
