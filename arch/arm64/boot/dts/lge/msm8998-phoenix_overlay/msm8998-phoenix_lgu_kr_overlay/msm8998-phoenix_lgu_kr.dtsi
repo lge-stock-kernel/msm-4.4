@@ -10,35 +10,36 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/clock/msm-clocks-8998.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
-#include "msm8998-phoenix_sb_jp-pinctrl.dtsi"
-#include "msm8998-phoenix_sb_jp-misc.dtsi"
-#include "../msm8998-phoenix-common/msm8998-phoenix-common-panel.dtsi"
-#include "msm8998-phoenix_sb_jp-pm.dtsi"
-#include "msm8998-phoenix_sb_jp-sound.dtsi"
-#include "msm8998-phoenix_sb_jp-connectivity.dtsi"
-#include "msm8998-phoenix_sb_jp-nfc.dtsi"
-#include "msm8998-phoenix_sb_jp-hdmi.dtsi"
-#include "../msm8998-phoenix-camera/msm8998-phoenix-camera_rev_0.dtsi"
-#include "msm8998-phoenix_sb_jp-fingerprint.dtsi"
-#include "msm8998-phoenix_sb_jp-touch.dtsi"
-#include "msm8998-phoenix_sb_jp-usb.dtsi"
-#include "msm8998-phoenix_sb_jp-pkm.dtsi"
+#include "msm8998-phoenix_lgu_kr-pinctrl.dtsi"
+#include "msm8998-phoenix_lgu_kr-misc.dtsi"
+#include "msm8998-phoenix_lgu_kr-panel.dtsi"
+#include "msm8998-phoenix_lgu_kr-pm.dtsi"
+#include "msm8998-phoenix_lgu_kr-sound.dtsi"
+#include "msm8998-phoenix_lgu_kr-connectivity.dtsi"
+#include "msm8998-phoenix_lgu_kr-nfc.dtsi"
+#include "msm8998-phoenix_lgu_kr-hdmi.dtsi"
+#include "../msm8998-phoenix-camera/msm8998-phoenix-camera_overlay.dtsi"
+#include "msm8998-phoenix_lgu_kr-fingerprint.dtsi"
+#include "msm8998-phoenix_lgu_kr-touch.dtsi"
+#include "msm8998-phoenix_lgu_kr-usb.dtsi"
+#include "msm8998-phoenix_lgu_kr-pkm.dtsi"
 
-/ {
-	reserved-memory {
-		ramoops_mem: ramoops_region@b0000000 {
-			compatible = "removed-dma-pool";
-			no-map;
-			reg = <0 0xb0000000 0 0x100000>;
-		};
+&reserved_memory {
+	ramoops_mem: ramoops_region@b0000000 {
+		compatible = "removed-dma-pool";
+		no-map;
+		reg = <0 0xb0000000 0 0x100000>;
+	};
 
-		crash_fb_mem: crash_fb_mem@b0100000 {
-			linux,contiguous-region;
-			reg = <0 0xb0100000 0 0x1800000>;
-			label = "crash_fb_mem";
-		};
+	crash_fb_mem: crash_fb_mem@b0100000 {
+		linux,contiguous-region;
+		reg = <0 0xb0100000 0 0x1800000>;
+		label = "crash_fb_mem";
 	};
 };
 
@@ -175,9 +176,10 @@
 
 &i2c_7 {
 	status = "okay";
-	smb138x: qcom,smb138x@8 {
-		status = "disabled";
-	};
+};
+
+&smb138x {
+	status = "disabled";
 };
 
 &mdss_dp_ctrl {

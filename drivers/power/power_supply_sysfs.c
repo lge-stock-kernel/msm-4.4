@@ -346,7 +346,7 @@ static struct device_attribute power_supply_attrs[] = {
 #ifdef CONFIG_LGE_USB_MOISTURE_DETECTION
 	POWER_SUPPLY_ATTR(moisture_detection),
 	POWER_SUPPLY_ATTR(typec_cc_disable),
-	POWER_SUPPLY_ATTR(typec_is_ocp),
+	POWER_SUPPLY_ATTR(is_ocp),
 #endif
 #ifdef CONFIG_LGE_PM_TIME_TO_FULL
 	POWER_SUPPLY_ATTR(time_to_full_capacity),

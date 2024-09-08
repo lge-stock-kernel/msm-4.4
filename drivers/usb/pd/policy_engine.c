@@ -4885,7 +4885,7 @@ static int pd_get_is_ocp(struct usbpd *pd)
 {
 	union power_supply_propval pval = {0, };
 
-	power_supply_get_property(pd->usb_psy, POWER_SUPPLY_PROP_TYPEC_IS_OCP, &pval);
+	power_supply_get_property(pd->usb_psy, POWER_SUPPLY_PROP_IS_OCP, &pval);
 
 	return pval.intval;
 }

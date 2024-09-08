@@ -59,5 +59,6 @@
 	qcom,lra-high-z = "opt1";
 	qcom,lra-auto-res-mode = "none";
 	qcom,lra-res-cal-period = <4>;
-	/delete-property/qcom,correct-lra-drive-freq;
+/* move to main soc dtb */
+//	/delete-property/qcom,correct-lra-drive-freq;
 };

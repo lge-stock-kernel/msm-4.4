@@ -518,6 +518,7 @@ static enum power_supply_property smb2_usb_props[] = {
 #ifdef CONFIG_LGE_USB_MOISTURE_DETECTION
 	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
 	POWER_SUPPLY_PROP_TYPEC_CC_DISABLE,
+	POWER_SUPPLY_PROP_IS_OCP,
 #endif
 	POWER_SUPPLY_PROP_HW_CURRENT_MAX,
 	POWER_SUPPLY_PROP_REAL_TYPE,
@@ -699,8 +700,8 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TYPEC_CC_DISABLE:
 		rc = smblib_get_prop_typec_cc_disable(chg, val);
 		break;
-	case POWER_SUPPLY_PROP_TYPEC_IS_OCP:
-		rc = smblib_get_prop_typec_is_ocp(chg, val);
+	case POWER_SUPPLY_PROP_IS_OCP:
+		rc = smblib_get_prop_is_ocp(chg, val);
 		break;
 #endif
 	case POWER_SUPPLY_PROP_HW_CURRENT_MAX:
