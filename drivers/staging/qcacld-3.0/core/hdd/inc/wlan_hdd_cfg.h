@@ -16189,11 +16189,7 @@ enum hdd_external_acs_policy {
  * </ini>
  */
 #define CFG_IGNORE_FW_REG_OFFLOAD_IND            "ignore_fw_reg_offload_ind"
-#if 0 //LGE PATCH for default 1
-#define CFG_IGNORE_FW_REG_OFFLOAD_IND_DEFAULT    (0)
-#else
-#define CFG_IGNORE_FW_REG_OFFLOAD_IND_DEFAULT    (1)
-#endif
+#define CFG_IGNORE_FW_REG_OFFLOAD_IND_DEFAULT    (0) //LGE_Patch for do not offloading from FW
 #define CFG_IGNORE_FW_REG_OFFLOAD_IND_MIN        (0)
 #define CFG_IGNORE_FW_REG_OFFLOAD_IND_MAX        (1)
 
