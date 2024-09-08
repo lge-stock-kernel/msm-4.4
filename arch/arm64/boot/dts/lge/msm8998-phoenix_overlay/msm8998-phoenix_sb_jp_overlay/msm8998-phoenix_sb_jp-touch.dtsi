@@ -88,7 +88,7 @@
 				/* role */
 				use_lpwg = <0>;
 				use_lpwg_test = <0>;
-				hide_coordinate = <0>;
+				hide_coordinate = <1>;
 
 				/* firmware */
 				fw_image = "touch/phoenix/L0W60PNX_1_04.img";

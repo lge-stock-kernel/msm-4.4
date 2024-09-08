@@ -6,6 +6,7 @@ ifeq ($(CONFIG_MACH_MSM8998_JOAN),y)
 DTS_PROJECT := msm8998-joan
 endif
 
+# phoenix_sb_jp & lgu_kr use CONFIG_BUILD_ARM64_DT_OVERLAY(DTBO)
 ifeq ($(CONFIG_MACH_MSM8998_PHOENIX),y)
 ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 DTS_PROJECT := msm8998-phoenix_overlay
@@ -79,19 +80,11 @@ DTS_TARGET := msm8998-phoenix_lao_com
 endif
 
 ifeq ($(CONFIG_MACH_MSM8998_PHOENIX_SB_JP),y)
-ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 DTS_TARGET := msm8998-phoenix_sb_jp_overlay
-else
-DTS_TARGET := msm8998-phoenix_sb_jp
-endif
 endif
 
 ifeq ($(CONFIG_MACH_MSM8998_PHOENIX_LGU_KR),y)
-ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
 DTS_TARGET := msm8998-phoenix_lgu_kr_overlay
-else
-DTS_TARGET := msm8998-phoenix_lgu_kr
-endif
 endif
 
 ALL_DTS := $(notdir $(wildcard echo $(srctree)/$(src)/$(DTS_PROJECT)/$(DTS_TARGET)/*.dts))

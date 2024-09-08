@@ -542,6 +542,7 @@ struct usbpd {
 #endif
 #if defined(CONFIG_LGE_USB_FACTORY) && defined(CONFIG_LGE_USB_EMBEDDED_BATTERY)
 	struct work_struct usb_reboot_work;
+	int reboot_flag;
 #endif
 #ifdef CONFIG_LGE_USB_SWITCH_FUSB252
 	struct fusb252_desc	fusb252_desc;
@@ -654,14 +655,26 @@ static void usb_debugger_work(struct work_struct *w)
 #if defined(CONFIG_LGE_USB_FACTORY) && defined(CONFIG_LGE_USB_EMBEDDED_BATTERY)
 static void usb_reboot_work(struct work_struct *w)
 {
+	struct usbpd *pd = container_of(w, struct usbpd, usb_reboot_work);
+
+	if (!pd->reboot_flag)
+		return;
+
+	msleep(100);
+	if (pd->reboot_flag == 2) {
+		qpnp_pon_set_restart_reason(
+				PON_RESTART_REASON_LAF_DLOAD_MTP);
+		msm_set_restart_mode(RESTART_DLOAD);
+	}
+	kernel_restart(NULL);
+}
+static void usb_reboot_check(struct usbpd *pd)
+{
 	if (lge_power_get_cable_type() == CABLE_ADC_56K &&
 			lge_get_boot_mode() == LGE_BOOT_MODE_NORMAL) {
-
 		pr_info("[FACTORY] PIF_56K detected in NORMAL BOOT, reboot!!\n");
 
-
-		kernel_restart(NULL);
-
+		pd->reboot_flag = 1;
 	} else if (!lge_get_laf_mode() &&
 			lge_power_get_cable_type() == CABLE_ADC_910K &&
 			(lge_power_get_cable_type_boot() != LT_CABLE_910K ||
@@ -669,17 +682,16 @@ static void usb_reboot_work(struct work_struct *w)
 		pr_info("[FACTORY] reset due to 910K cable, pm:%d, xbl:%d, firstboot_check:%d\n",
 				lge_power_get_cable_type(), lge_get_factory_cable(), firstboot_check);
 
-		qpnp_pon_set_restart_reason(
-				PON_RESTART_REASON_LAF_DLOAD_MTP);
-		msm_set_restart_mode(RESTART_DLOAD);
-		kernel_restart(NULL);
+		pd->reboot_flag = 2;
 	}
 
 	if (lge_get_factory_boot()) {
 		pr_info("[cable info] boot_mode:%d, dlcomplete:%d\n",
 				lge_get_boot_mode(), lge_get_android_dlcomplete());
-		firstboot_check = 0;
 	}
+
+	if (pd->reboot_flag)
+		schedule_work(&pd->usb_reboot_work);
 }
 #endif
 
@@ -721,6 +733,10 @@ static inline void start_usb_peripheral(struct usbpd *pd)
 {
 	enum plug_orientation cc = usbpd_get_plug_orientation(pd);
 
+#if defined(CONFIG_LGE_USB_FACTORY) && defined(CONFIG_LGE_USB_EMBEDDED_BATTERY)
+	if (pd->reboot_flag)
+		return;
+#endif
 #ifdef CONFIG_LGE_USB_FACTORY
 	if (pd->typec_mode == POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY)
 		cc = ORIENTATION_CC2;
@@ -3513,6 +3529,11 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 		return ret;
 	}
 
+#if defined(CONFIG_LGE_USB_FACTORY) && defined(CONFIG_LGE_USB_EMBEDDED_BATTERY)
+	if(pd->vbus_present && !val.intval)
+		firstboot_check = 0;
+#endif
+
 	pd->vbus_present = val.intval;
 
 	ret = power_supply_get_property(pd->usb_psy,
@@ -3656,6 +3677,13 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 			return 0;
 		}
 #endif
+
+#if defined(CONFIG_LGE_USB_FACTORY) && defined(CONFIG_LGE_USB_EMBEDDED_BATTERY)
+		if (lge_get_factory_boot() && pd->vbus_present) {
+			usbpd_dbg(&pd->dev, "Ignoring disconnect due to factory boot\n");
+			return 0;
+		}
+#endif
 		if (pd->in_pr_swap) {
 			usbpd_dbg(&pd->dev, "Ignoring disconnect due to PR swap\n");
 			return 0;
@@ -3716,6 +3744,10 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 				   typec_mode == POWER_SUPPLY_TYPEC_SINK ?
 				   "" : " (powered)");
 
+#if defined(CONFIG_LGE_USB_FACTORY) && defined(CONFIG_LGE_USB_EMBEDDED_BATTERY)
+			if (lge_get_factory_boot())
+				usb_reboot_check(pd);
+#endif
 			if (pd->current_pr == PR_SINK)
 				return 0;
 
@@ -3752,7 +3784,7 @@ static int psy_changed(struct notifier_block *nb, unsigned long evt, void *ptr)
 			pd->current_pr = PR_SINK;
 			pd->in_pr_swap = false;
 #ifdef CONFIG_LGE_USB_EMBEDDED_BATTERY
-			schedule_work(&pd->usb_reboot_work);
+			usb_reboot_check(pd);
 #endif
 		}
 #endif
