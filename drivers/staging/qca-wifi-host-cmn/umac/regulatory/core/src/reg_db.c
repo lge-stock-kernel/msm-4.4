@@ -202,6 +202,10 @@ enum country_code {
 	CTRY_JAPAN = 392,
 	CTRY_JAPAN15 = 4015,
 	CTRY_XA = 4100,
+#if 1
+	CTRY_LGEDC = 900,
+	CTRY_LGED0 = 901,
+#endif
 };
 
 enum reg_domain {
@@ -277,6 +281,10 @@ enum reg_domain {
 	WORLD_68 = 0x68,
 	WORLD_6A = 0x6A,
 	WORLD_6C = 0x6C,
+#if 1
+	WORLD_LGE1 = 0xa0,
+	WORLD_LGE2 = 0xa1,
+#endif
 };
 
 #ifndef CONFIG_MCL_REGDB
@@ -633,6 +641,10 @@ const struct country_code_to_reg_domain g_all_countries[] = {
 	{CTRY_ZIMBABWE, ETSI1_WORLD, "ZW", 40, 160, 0},
 	{CTRY_JAPAN, MKK5_MKKC, "JP", 40, 160, 0},
 	{CTRY_XA, MKK5_MKKA, "XA", 40, 160, 0},
+#if 1
+	{CTRY_LGEDC, WORLD_LGE1, "DC", 40, 160, 0},
+	{CTRY_LGED0, WORLD_LGE2, "D0", 40, 160, 0},
+#endif
 };
 #else
 const struct country_code_to_reg_domain g_all_countries[] = {
@@ -810,6 +822,10 @@ const struct country_code_to_reg_domain g_all_countries[] = {
 	{CTRY_ZIMBABWE, ETSI1_WORLD, "ZW", 40, 160, 0},
 	{CTRY_JAPAN, MKK5_MKKC, "JP", 40, 160, 0},
 	{CTRY_XA, MKK5_MKKA, "XA", 40, 160, 0},
+#if 1
+	{CTRY_LGEDC, WORLD_LGE1, "DC", 40, 160, 0},
+	{CTRY_LGED0, WORLD_LGE2, "D0", 40, 160, 0},
+#endif
 };
 #endif
 #endif
@@ -825,6 +841,10 @@ enum reg_domains_2g {
 	WORLD_2G_1,
 	WORLD_2G_2,
 	WORLD_2G_3,
+#if 1
+	WORLD_2G_LGE1,
+	WORLD_2G_LGE2,
+#endif
 };
 
 enum reg_domains_5g {
@@ -877,6 +897,9 @@ enum reg_domains_5g {
 	MKK16,
 	WORLD_5G_1,
 	WORLD_5G_2,
+#if 1
+	WORLD_5G_LGE,
+#endif
 };
 
 
@@ -951,6 +974,10 @@ const struct reg_domain_pair g_reg_dmn_pairs[] = {
 	{WORLD_68, WORLD_5G_2, WORLD_2G_2},
 	{WORLD_6A, WORLD_5G_2, WORLD_2G_2},
 	{WORLD_6C, WORLD_5G_2, WORLD_2G_2},
+#if 1
+	{WORLD_LGE1, WORLD_5G_LGE, WORLD_2G_LGE1},
+	{WORLD_LGE2, WORLD_5G_LGE, WORLD_2G_LGE2},
+#endif
 };
 
 enum reg_rules_2g {
@@ -958,6 +985,7 @@ enum reg_rules_2g {
 	CHAN_1_11_1,
 	CHAN_1_11_2,
 	CHAN_1_11_3,
+	CHAN_1_11_4,
 	CHAN_1_13_1,
 	CHAN_1_13_2,
 	CHAN_1_13_3,
@@ -973,6 +1001,9 @@ const struct regulatory_rule reg_rules_2g[] = {
 	[CHAN_1_11_1] = {2402, 2472, 40, 30, 0},
 	[CHAN_1_11_2] = {2402, 2472, 40, 20, 0},
 	[CHAN_1_11_3] = {2402, 2472, 40, 36, 0},
+#if 1
+	[CHAN_1_11_4] = {2402, 2472, 40, 23, 0},
+#endif
 	[CHAN_1_13_1] = {2402, 2482, 40, 20, 0},
 	[CHAN_1_13_2] = {2402, 2482, 40, 30, 0},
 	[CHAN_1_13_3] = {2402, 2482, 40, 36, 0},
@@ -1000,6 +1031,10 @@ const struct regdomain regdomains_2g[] = {
 			{CHAN_1_11_2, CHAN_12_13_1} },
 	[WORLD_2G_3] = {CTL_NONE, DFS_UNINIT_REG, 0, 0, 2,
 			{CHAN_1_11_2, CHAN_12_12_1} },
+#if 1
+	[WORLD_2G_LGE1] = {CTL_NONE, DFS_UNINIT_REG, 0, 0, 1, {CHAN_1_11_4} },
+	[WORLD_2G_LGE2] = {CTL_NONE, DFS_UNINIT_REG, 0, 0, 1, {CHAN_1_13_4} },
+#endif
 };
 
 
@@ -1017,6 +1052,9 @@ enum reg_rules_5g {
 	CHAN_5170_5250_7,
 	CHAN_5170_5250_8,
 	CHAN_5170_5250_9,
+#if 1
+	CHAN_5170_5250_10,
+#endif
 	CHAN_5170_5330_1,
 	CHAN_5170_5330_2,
 	CHAN_5250_5330_1,
@@ -1066,6 +1104,9 @@ enum reg_rules_5g {
 	CHAN_5735_5835_6,
 	CHAN_5735_5835_7,
 	CHAN_5735_5835_8,
+#if 1
+	CHAN_5735_5835_9,
+#endif
 	CHAN_5735_5875_1,
 	CHAN_5735_5875_2,
 	CHAN_5735_5875_3,
@@ -1094,6 +1135,9 @@ const struct regulatory_rule reg_rules_5g[] = {
 	[CHAN_5170_5250_7] = {5170, 5250, 80, 20, REGULATORY_CHAN_INDOOR_ONLY},
 	[CHAN_5170_5250_8] = {5170, 5250, 80, 23, REGULATORY_CHAN_INDOOR_ONLY},
 	[CHAN_5170_5250_9] = {5170, 5250, 40, 30, 0},
+#if 1
+	[CHAN_5170_5250_10] = {5170, 5250, 80, 23, REGULATORY_CHAN_NO_IR},
+#endif
 	[CHAN_5170_5330_1] = {5170, 5330, 160, 20, REGULATORY_CHAN_NO_IR},
 	[CHAN_5170_5330_2] = {5170, 5330, 160, 24, 0},
 	[CHAN_5250_5330_1] = {5250, 5330, 80, 23, REGULATORY_CHAN_RADAR},
@@ -1145,6 +1189,9 @@ const struct regulatory_rule reg_rules_5g[] = {
 	[CHAN_5735_5835_6] = {5735, 5835, 80, 24, 0},
 	[CHAN_5735_5835_7] = {5735, 5835, 80, 36, 0},
 	[CHAN_5735_5835_8] = {5735, 5835, 80, 23, REGULATORY_CHAN_RADAR},
+#if 1
+	[CHAN_5735_5835_9] = {5735, 5835, 80, 23, REGULATORY_CHAN_NO_IR},
+#endif
 	[CHAN_5735_5875_1] = {5735, 5875, 20, 27, REGULATORY_CHAN_RADAR},
 	[CHAN_5735_5875_2] = {5735, 5875, 20, 30, 0},
 	[CHAN_5735_5875_3] = {5735, 5875, 80, 30, 0},
@@ -1335,8 +1382,8 @@ const struct regdomain regdomains_5g[] = {
 
 	[MKK3] = {CTL_MKK, DFS_UNINIT_REG, 2, 0, 1, {CHAN_5170_5250_3} },
 
-	[MKK5] = {CTL_MKK, DFS_MKK_REG, 2, 0, 3, {CHAN_5170_5250_2,
-						     CHAN_5250_5330_1,
+	[MKK5] = {CTL_MKK, DFS_MKK_REG, 2, 0, 3, {CHAN_5170_5250_8,
+						     CHAN_5250_5330_12,
 						     CHAN_5490_5710_7} },
 
 	[MKK11] = {CTL_MKK, DFS_MKK_REG, 2, 0, 5, {CHAN_4910_4990_1,
@@ -1355,6 +1402,13 @@ const struct regdomain regdomains_5g[] = {
 			{CHAN_5170_5330_1,
 			 CHAN_5490_5730_2,
 			 CHAN_5735_5835_5} },
+#if 1
+	[WORLD_5G_LGE] = {CTL_NONE, DFS_UNINIT_REG, 2, 0, 4,
+			{CHAN_5170_5250_10,
+			 CHAN_5250_5330_1,
+			 CHAN_5490_5710_7,
+			 CHAN_5735_5835_9} },
+#endif
 };
 
 QDF_STATUS reg_get_num_countries(int *num_countries)
