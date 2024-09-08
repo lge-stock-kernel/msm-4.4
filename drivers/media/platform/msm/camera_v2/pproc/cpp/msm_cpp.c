@@ -157,7 +157,11 @@ static int32_t msm_cpp_reset_vbif_and_load_fw(struct cpp_device *cpp_dev);
 	qcmd;			 \
 })
 
+#ifndef CONFIG_MACH_LGE
 #define MSM_CPP_MAX_TIMEOUT_TRIAL 1
+#else
+#define MSM_CPP_MAX_TIMEOUT_TRIAL 3
+#endif
 
 struct msm_cpp_timer_data_t {
 	struct cpp_device *cpp_dev;
@@ -1498,8 +1502,6 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	uint32_t i;
 	int rc = -1;
-	int counter = 0;
-	u32 result = 0;
 	struct cpp_device *cpp_dev = NULL;
 	struct msm_device_queue *processing_q = NULL;
 	struct msm_device_queue *eventData_q = NULL;
@@ -1580,54 +1582,6 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x88));
 		pr_debug("DEBUG_R1: 0x%x\n",
 			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x8C));
-
-		/* mask IRQ status */
-		msm_camera_io_w(0xB, cpp_dev->cpp_hw_base + 0xC);
-
-		/* clear IRQ status */
-		msm_camera_io_w(0xFFFFF, cpp_dev->cpp_hw_base + 0x14);
-
-		/* MMSS_A_CPP_AXI_CMD = 0x16C, reset 0x1*/
-		msm_camera_io_w(0x1, cpp_dev->cpp_hw_base + 0x16C);
-
-		while (counter < MSM_CPP_POLL_RETRIES) {
-			result = msm_camera_io_r(cpp_dev->cpp_hw_base + 0x10);
-			if (result & 0x2)
-				break;
-			/*
-			 * Below usleep values are chosen based on experiments
-			 * and this was the smallest number which works. This
-			 * sleep is needed to leave enough time for hardware
-			 * to update status register.
-			 */
-			usleep_range(200, 250);
-			counter++;
-		}
-
-		pr_debug("CPP AXI done counter %d result 0x%x\n",
-			counter, result);
-
-		/* clear IRQ status */
-		msm_camera_io_w(0xFFFFF, cpp_dev->cpp_hw_base + 0x14);
-		counter = 0;
-		/* MMSS_A_CPP_RST_CMD_0 = 0x8, firmware reset = 0x3DF77 */
-		msm_camera_io_w(0x3DF77, cpp_dev->cpp_hw_base + 0x8);
-
-		while (counter < MSM_CPP_POLL_RETRIES) {
-			result = msm_camera_io_r(cpp_dev->cpp_hw_base + 0x10);
-			if (result & 0x1)
-				break;
-			/*
-			 * Below usleep values are chosen based on experiments
-			 * and this was the smallest number which works. This
-			 * sleep is needed to leave enough time for hardware
-			 * to update status register.
-			 */
-			usleep_range(200, 250);
-			counter++;
-		}
-		pr_debug("CPP reset done counter %d result 0x%x\n",
-			counter, result);
 
 		msm_camera_io_w(0x0, cpp_dev->base + MSM_CPP_MICRO_CLKEN_CTL);
 		msm_cpp_clear_timer(cpp_dev);
@@ -1964,6 +1918,17 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 	msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x8);
 
 	for (i = 0; i < queue_len; i++) {
+#ifdef CONFIG_MACH_LGE
+		/*LGE_CHANGE S, fix NULL pointer panic while msm_cpp_do_timeout_work, 2016-08-02, Camera-Stability@lge.com*/
+		if(processed_frame[i] == NULL){
+			pr_err("%s:%d: processed_frame[%d] is null \n",
+			__func__, __LINE__,i);
+
+			continue;
+		}
+		/*LGE_CHANGE E, fix NULL pointer panic while msm_cpp_do_timeout_work, 2016-08-02, Camera-Stability@lge.com*/
+#endif
+
 		pr_warn("Rescheduling for identity=0x%x, frame_id=%03d\n",
 			processed_frame[i]->identity,
 			processed_frame[i]->frame_id);
@@ -2078,8 +2043,19 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 		spin_lock_irqsave(&cpp_timer.data.processed_frame_lock, flags);
 		msm_enqueue(&cpp_dev->processing_q,
 			&frame_qcmd->list_frame);
+#ifndef CONFIG_MACH_LGE
 		cpp_timer.data.processed_frame[cpp_dev->processing_q.len - 1] =
 			process_frame;
+#else
+/*LGE_CHANGE S, fix NULL pointer panic while msm_cpp_do_timeout_work, 2016-08-02, Camera-Stability@lge.com*/
+		for (i = 0; i < MAX_CPP_PROCESSING_FRAME; i++){
+			if(cpp_timer.data.processed_frame[i] == NULL){
+				cpp_timer.data.processed_frame[i] = process_frame;
+				break;
+			}
+		}
+/*LGE_CHANGE E, fix NULL pointer panic while msm_cpp_do_timeout_work, 2016-08-02, Camera-Stability@lge.com*/
+#endif
 		queue_len = cpp_dev->processing_q.len;
 		spin_unlock_irqrestore(&cpp_timer.data.processed_frame_lock,
 			flags);
@@ -4693,7 +4669,11 @@ static int cpp_probe(struct platform_device *pdev)
 
 	rc = msm_cpp_read_payload_params_from_dt(cpp_dev);
 	if (rc)
+#ifdef CONFIG_MACH_LGE
+		goto cpp_probe_init_error1;
+#else
 		goto cpp_probe_init_error;
+#endif
 
 	if (cpp_dev->bus_master_flag)
 		rc = msm_cpp_init_bandwidth_mgr(cpp_dev);
@@ -4701,13 +4681,21 @@ static int cpp_probe(struct platform_device *pdev)
 		rc = msm_isp_init_bandwidth_mgr(NULL, ISP_CPP);
 	if (rc < 0) {
 		pr_err("%s: Bandwidth registration Failed!\n", __func__);
+#ifdef CONFIG_MACH_LGE
+		goto cpp_probe_init_error1;
+#else
 		goto cpp_probe_init_error;
+#endif
 	}
 
 	cpp_dev->state = CPP_STATE_BOOT;
 	rc = cpp_init_hardware(cpp_dev);
 	if (rc < 0)
+#ifdef CONFIG_MACH_LGE
+		goto cpp_probe_init_error2;
+#else
 		goto bus_de_init;
+#endif
 
 	media_entity_init(&cpp_dev->msm_sd.sd.entity, 0, NULL, 0);
 	cpp_dev->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
@@ -4774,8 +4762,16 @@ bus_de_init:
 		msm_cpp_deinit_bandwidth_mgr(cpp_dev);
 	else
 		msm_isp_deinit_bandwidth_mgr(ISP_CPP);
+#ifndef CONFIG_MACH_LGE
 cpp_probe_init_error:
+#endif
 	media_entity_cleanup(&cpp_dev->msm_sd.sd.entity);
+cpp_probe_init_error2:
+	if (cpp_dev->bus_master_flag)
+		msm_cpp_deinit_bandwidth_mgr(cpp_dev);
+	else
+		msm_isp_deinit_bandwidth_mgr(ISP_CPP);
+cpp_probe_init_error1:
 	msm_sd_unregister(&cpp_dev->msm_sd);
 get_reset_err:
 	reset_control_put(cpp_dev->micro_iface_reset);

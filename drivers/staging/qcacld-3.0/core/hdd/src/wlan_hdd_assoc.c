@@ -2234,7 +2234,11 @@ void hdd_save_gtk_params(struct hdd_adapter *adapter,
 	if (is_reassoc) {
 		kek = csr_roam_info->kek;
 		kek_len = csr_roam_info->kek_len;
-	} else {
+    } else {
+#if defined(FEATURE_SUPPORT_LGE)
+        // don't use it in lge devices. it is not verified yet
+        return;
+#else
 		/*
 		 * This should come for FILS case only.
 		 * Caller should make sure fils_join_rsp is
@@ -2242,6 +2246,7 @@ void hdd_save_gtk_params(struct hdd_adapter *adapter,
 		 */
 		kek = csr_roam_info->fils_join_rsp->kek;
 		kek_len = csr_roam_info->fils_join_rsp->kek_len;
+#endif
 	}
 
 	wlan_hdd_save_gtk_offload_params(adapter, NULL, kek, kek_len,

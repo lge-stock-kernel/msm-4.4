@@ -815,6 +815,8 @@ struct wlan_lmac_if_reg_rx_ops {
 			uint16_t regdmn);
 	QDF_STATUS (*reg_get_current_regdomain)(struct wlan_objmgr_pdev *pdev,
 			struct cur_regdmn_info *cur_regdmn);
+	bool (*reg_ignore_fw_reg_offload_ind)(struct wlan_objmgr_psoc *psoc);
+
 };
 
 #ifdef CONVERGED_P2P_ENABLE

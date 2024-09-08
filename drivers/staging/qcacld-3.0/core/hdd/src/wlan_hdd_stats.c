@@ -3083,7 +3083,7 @@ static void wlan_hdd_fill_summary_stats(tCsrSummaryStatsInfo *stats,
  *
  * Return: errno
  */
-static int
+int
 wlan_hdd_get_sap_stats(struct hdd_adapter *adapter, struct station_info *info)
 {
 	int ret;
