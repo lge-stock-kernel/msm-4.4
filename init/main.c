@@ -964,6 +964,9 @@ static int __ref kernel_init(void *unused)
 	flush_delayed_fput();
 	place_marker("M : Kernel End");
 
+#ifdef CONFIG_MDFPP_CCAUDIT
+        pr_notice("[CCAudit] Run init process for OS startup\n");
+#endif
 	if (ramdisk_execute_command) {
 		ret = run_init_process(ramdisk_execute_command);
 		if (!ret)

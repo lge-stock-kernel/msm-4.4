@@ -3618,6 +3618,7 @@ struct reg_table_entry g_registry_table[] = {
 		     CFG_ENABLE_NON_DFS_CHAN_ON_RADAR_MIN,
 		     CFG_ENABLE_NON_DFS_CHAN_ON_RADAR_MAX),
 
+#ifdef FEATURE_SUPPORT_LGE
 	REG_VARIABLE(CFG_P2P_LISTEN_DEFER_INTERVAL_NAME, WLAN_PARAM_Integer,
 		     struct hdd_config, p2p_listen_defer_interval,
 		     VAR_FLAGS_OPTIONAL |
@@ -3625,6 +3626,7 @@ struct reg_table_entry g_registry_table[] = {
 		     CFG_P2P_LISTEN_DEFER_INTERVAL_DEFAULT,
 		     CFG_P2P_LISTEN_DEFER_INTERVAL_MIN,
 		     CFG_P2P_LISTEN_DEFER_INTERVAL_MAX),
+#endif
 
 	REG_VARIABLE(CFG_MULTICAST_HOST_FW_MSGS, WLAN_PARAM_Integer,
 		     struct hdd_config, multicast_host_fw_msgs,
@@ -7985,10 +7987,12 @@ QDF_STATUS hdd_set_idle_ps_config(hdd_context_t *pHddCtx, bool val)
 {
 	QDF_STATUS status = QDF_STATUS_SUCCESS;
 
+#ifndef FEATURE_SUPPORT_LGE
 	if (pHddCtx->imps_enabled == val) {
 		hdd_debug("Already in the requested power state:%d", val);
 		return QDF_STATUS_SUCCESS;
 	}
+#endif
 
 	hdd_debug("hdd_set_idle_ps_config: Enter Val %d", val);
 
