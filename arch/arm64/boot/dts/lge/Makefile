@@ -87,11 +87,7 @@ endif
 endif
 
 ifeq ($(CONFIG_MACH_MSM8998_PHOENIX_LGU_KR),y)
-ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY),y)
-DTS_TARGET := msm8998-phoenix_lgu_kr_overlay
-else
 DTS_TARGET := msm8998-phoenix_lgu_kr
-endif
 endif
 
 ALL_DTS := $(notdir $(wildcard echo $(srctree)/$(src)/$(DTS_PROJECT)/$(DTS_TARGET)/*.dts))

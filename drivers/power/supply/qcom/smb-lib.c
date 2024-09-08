@@ -4094,7 +4094,7 @@ int smblib_get_prop_typec_cc_disable(struct smb_charger *chg,
 
 	return rc;
 }
-int smblib_get_prop_is_ocp(struct smb_charger *chg,
+int smblib_get_prop_typec_is_ocp(struct smb_charger *chg,
 		union power_supply_propval *val)
 {
 	const struct apsd_result *apsd_result = smblib_get_apsd_result(chg);
@@ -5861,11 +5861,6 @@ static void smblib_handle_apsd_done(struct smb_charger *chg, bool rising)
 	if (!rising)
 		return;
 
-#ifdef CONFIG_LGE_USB_MOISTURE_DETECTION
-	if (is_client_vote_enabled(chg->usb_icl_votable, MOISTURE_VOTER))
-		return;
-#endif
-
 	apsd_result = smblib_update_usb_type(chg);
 
 	if (!chg->typec_legacy_valid)
@@ -6032,6 +6027,20 @@ static int typec_try_sink(struct smb_charger *chg)
 	bool debounce_done, vbus_detected, sink;
 	u8 stat;
 	int exit_mode = ATTACHED_SRC, rc;
+	int typec_mode;
+
+	if (!(*chg->try_sink_enabled))
+		return ATTACHED_SRC;
+
+	typec_mode = smblib_get_prop_typec_mode(chg);
+	if (typec_mode == POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER
+		|| typec_mode == POWER_SUPPLY_TYPEC_SINK_DEBUG_ACCESSORY)
+		return ATTACHED_SRC;
+
+	/*
+	 * Try.SNK entry status - ATTACHWAIT.SRC state and detected Rd-open
+	 * or RD-Ra for TccDebounce time.
+	 */
 
 	/* ignore typec interrupt while try.snk WIP */
 	chg->try_sink_active = true;
@@ -6170,20 +6179,18 @@ try_sink_exit:
 static void typec_sink_insertion(struct smb_charger *chg)
 {
 	int exit_mode;
+	int typec_mode;
 
-	/*
-	 * Try.SNK entry status - ATTACHWAIT.SRC state and detected Rd-open
-	 * or RD-Ra for TccDebounce time.
-	 */
+	exit_mode = typec_try_sink(chg);
 
-	if (*chg->try_sink_enabled) {
-		exit_mode = typec_try_sink(chg);
-
-		if (exit_mode != ATTACHED_SRC) {
-			smblib_usb_typec_change(chg);
-			return;
-		}
+	if (exit_mode != ATTACHED_SRC) {
+		smblib_usb_typec_change(chg);
+		return;
 	}
+
+	typec_mode = smblib_get_prop_typec_mode(chg);
+	if (typec_mode == POWER_SUPPLY_TYPEC_SINK_AUDIO_ADAPTER)
+		chg->is_audio_adapter = true;
 
 	/* when a sink is inserted we should not wait on hvdcp timeout to
 	 * enable pd
@@ -6344,22 +6351,21 @@ static void smblib_handle_typec_removal(struct smb_charger *chg)
 			rc);
 #endif
 
+	if (chg->is_audio_adapter == true)
+		/* wait for the audio driver to lower its en gpio */
+		msleep(*chg->audio_headset_drp_wait_ms);
+
+	chg->is_audio_adapter = false;
+
 #ifdef CONFIG_LGE_USB
 	if (chg->pd_active)
 		goto skip_cc_ctrl;
-#endif
-
-#ifdef CONFIG_LGE_USB_MOISTURE_DETECTION
-	if (!is_client_vote_enabled(chg->usb_icl_votable, MOISTURE_VOTER)) {
 #endif
 	/* enable DRP */
 	rc = smblib_masked_write(chg, TYPE_C_INTRPT_ENB_SOFTWARE_CTRL_REG,
 				 TYPEC_POWER_ROLE_CMD_MASK, 0);
 	if (rc < 0)
 		smblib_err(chg, "Couldn't enable DRP rc=%d\n", rc);
-#ifdef CONFIG_LGE_USB_MOISTURE_DETECTION
-	}
-#endif
 
 	/* HW controlled CC_OUT */
 	rc = smblib_masked_write(chg, TAPER_TIMER_SEL_CFG_REG,

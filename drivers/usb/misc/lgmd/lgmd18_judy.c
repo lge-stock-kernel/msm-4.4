@@ -1,9 +1,6 @@
 #include "lgmd18.h"
 
-#include <linux/delay.h>
 #include <linux/usb/fusb252.h>
-
-static unsigned long cc_stop_delay_us = 100000;
 
 struct lgmd18_judy {
 	struct fusb252_desc		fusb252_desc;
@@ -52,7 +49,6 @@ static int lgmd18_read_raw(struct iio_dev *indio_dev,
 			} else if (fusb252_flag != FUSB252_FLAG_SBU_MD_ING) {
 				fusb252_get(judy->fusb252_inst,
 					    FUSB252_FLAG_SBU_MD_ING);
-				usleep_range(cc_stop_delay_us, cc_stop_delay_us);
 			}
 		}
 

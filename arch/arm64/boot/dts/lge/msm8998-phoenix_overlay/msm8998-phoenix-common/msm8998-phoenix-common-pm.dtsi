@@ -830,7 +830,7 @@
 	qcom,fg-esr-tight-lt-filter-micro-pct = <30000>;
 	qcom,fg-esr-broad-lt-filter-micro-pct = <30000>;
 	qcom,fg-auto-recharge-soc;
-	qcom,fg-recharge-soc-thr = <97>;
+	qcom,fg-recharge-soc-thr = <95>;
 	qcom,cycle-counter-en;
 	qcom,cl-max-temp = <420>;
 	qcom,cl-max-increment = <0>;

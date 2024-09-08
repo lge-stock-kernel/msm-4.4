@@ -215,6 +215,11 @@ module_param_named(
 	try_sink_enabled, __try_sink_enabled, int, 0600
 );
 
+static int __audio_headset_drp_wait_ms = 100;
+module_param_named(
+	audio_headset_drp_wait_ms, __audio_headset_drp_wait_ms, int, 0600
+);
+
 #define MICRO_1P5A		1500000
 #define MICRO_P1A		100000
 #define OTG_DEFAULT_DEGLITCH_TIME_MS	50
@@ -513,7 +518,6 @@ static enum power_supply_property smb2_usb_props[] = {
 #ifdef CONFIG_LGE_USB_MOISTURE_DETECTION
 	POWER_SUPPLY_PROP_MOISTURE_DETECTED,
 	POWER_SUPPLY_PROP_TYPEC_CC_DISABLE,
-	POWER_SUPPLY_PROP_IS_OCP,
 #endif
 	POWER_SUPPLY_PROP_HW_CURRENT_MAX,
 	POWER_SUPPLY_PROP_REAL_TYPE,
@@ -695,8 +699,8 @@ static int smb2_usb_get_prop(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TYPEC_CC_DISABLE:
 		rc = smblib_get_prop_typec_cc_disable(chg, val);
 		break;
-	case POWER_SUPPLY_PROP_IS_OCP:
-		rc = smblib_get_prop_is_ocp(chg, val);
+	case POWER_SUPPLY_PROP_TYPEC_IS_OCP:
+		rc = smblib_get_prop_typec_is_ocp(chg, val);
 		break;
 #endif
 	case POWER_SUPPLY_PROP_HW_CURRENT_MAX:
@@ -2976,6 +2980,7 @@ static int smb2_probe(struct platform_device *pdev)
 	chg->mode = PARALLEL_MASTER;
 	chg->irq_info = smb2_irqs;
 	chg->name = "PMI";
+	chg->audio_headset_drp_wait_ms = &__audio_headset_drp_wait_ms;
 
 	chg->regmap = dev_get_regmap(chg->dev->parent, NULL);
 	if (!chg->regmap) {
